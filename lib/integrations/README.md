@@ -58,8 +58,9 @@ token exchange, because they are the same API underneath.
 ### What the Meta modules do and do not do
 
 - **Facebook stores a Page**, never a personal profile — only Pages can be posted to through the
-  API. An account that administers several Pages gets the first one; choosing between them needs
-  a picker in the connect flow, which does not exist yet.
+  API. Someone who administers several is asked which, at `/accounts/connect/<platform>`; only the
+  user token crosses into that step, encrypted in an httpOnly cookie, and the candidates are
+  fetched again from the provider on selection so the stored token is always one Meta just issued.
 - **Instagram requires a Business or Creator account linked to a Page.** The connect flow finds
   that Page and stores the Instagram account with the Page's token.
 - **Page tokens are derived from a long-lived user token**, so they do not expire while access is
@@ -70,6 +71,10 @@ token exchange, because they are the same API underneath.
   point, so another attempt costs a wasted container rather than a duplicate post.
 - **Mixed photo-and-video Instagram carousels are refused** with a reason rather than silently
   dropping the video.
+
+Both also answer Meta's `deauthorize` and `data-deletion` callbacks, verifying the
+`signed_request` signature before deleting anything. Without them a revoked app leaves dead tokens
+behind that every scheduled post retries against, and Meta checks both during app review.
 
 Analytics and inbox are still unimplemented everywhere, so both show empty states rather than
 invented numbers. The remaining five providers have their environment variables declared and

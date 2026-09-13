@@ -1,41 +1,58 @@
 import "server-only";
-import { buildMetaAuthorizeUrl, exchangeForLongLivedToken, listPages, MetaError, requireEnv } from "@/lib/integrations/meta/graph";
+import { buildMetaAuthorizeUrl, exchangeForLongLivedToken, graphGet, listPages, MetaError, requireEnv } from "@/lib/integrations/meta/graph";
+import type { ConnectableAccount, ExchangeResult } from "@/lib/integrations/types";
 
 /**
  * Instagram connection, through the Instagram Graph API.
  *
  * Publishing only works for a Business or Creator account linked to a Facebook Page —
- * that is Meta's rule, not ours, and personal accounts cannot be published to by any
- * tool. So the flow runs through Facebook's dialog, finds the Page whose linked
- * Instagram account we can post to, and stores that account with the Page's token.
+ * Meta's rule, not ours. So the flow runs through Facebook's dialog and offers every
+ * Instagram account reachable that way, each with its linked Page's token.
  */
-const SCOPES = [
-  "instagram_basic",
-  "instagram_content_publish",
-  "pages_show_list",
-  "pages_read_engagement",
-  "business_management",
-];
-
-const PAGE_FIELDS =
-  "id,name,access_token,instagram_business_account{id,username,name,profile_picture_url,followers_count}";
+const SCOPES = ["instagram_basic", "instagram_content_publish", "pages_show_list", "pages_read_engagement", "business_management"];
+const PAGE_FIELDS = "id,name,access_token,instagram_business_account{id,username,name,profile_picture_url,followers_count}";
 
 export async function buildAuthorizeUrl(input: { state: string; redirectUri: string }): Promise<string> {
   const { clientId } = requireEnv("INSTAGRAM_CLIENT_ID", "INSTAGRAM_CLIENT_SECRET");
   return buildMetaAuthorizeUrl({ clientId, redirectUri: input.redirectUri, state: input.state, scopes: SCOPES });
 }
 
-export async function exchangeCode(input: { code: string; redirectUri: string }) {
+export async function listConnectable(userToken: string): Promise<ConnectableAccount[]> {
+  const pages = await listPages(userToken, PAGE_FIELDS);
+  return pages.flatMap((page) => {
+    const ig = page.instagram_business_account;
+    if (!ig?.id) return [];
+    return [{
+      externalAccountId: ig.id,
+      handle: ig.username ?? ig.name ?? ig.id,
+      displayName: ig.name ?? ig.username ?? null,
+      avatarUrl: ig.profile_picture_url ?? null,
+      followers: ig.followers_count ?? null,
+      scopes: SCOPES,
+      // Publishing to Instagram is authorised with the linked Page's token.
+      accessToken: page.access_token,
+      refreshToken: null,
+      expiresAt: null,
+      subtitle: `via ${page.name}`,
+    }];
+  });
+}
+
+export async function exchangeCode(input: { code: string; redirectUri: string }): Promise<ExchangeResult> {
   const { clientId, clientSecret } = requireEnv("INSTAGRAM_CLIENT_ID", "INSTAGRAM_CLIENT_SECRET");
 
   const { accessToken: userToken } = await exchangeForLongLivedToken({
     clientId, clientSecret, code: input.code, redirectUri: input.redirectUri,
   });
 
-  const pages = await listPages(userToken, PAGE_FIELDS);
-  const linked = pages.find((page) => page.instagram_business_account?.id);
+  const [me, candidates] = await Promise.all([
+    graphGet<{ id?: string }>("/me", { access_token: userToken, fields: "id" }).catch(() => ({ id: undefined })),
+    listConnectable(userToken),
+  ]);
 
-  if (!linked?.instagram_business_account) {
+  if (candidates.length === 0) {
+    // Two different fixes, so say which one is missing.
+    const pages = await listPages(userToken, "id").catch(() => []);
     throw new MetaError(
       "NO_INSTAGRAM_ACCOUNT",
       pages.length === 0
@@ -45,17 +62,5 @@ export async function exchangeCode(input: { code: string; redirectUri: string })
     );
   }
 
-  const ig = linked.instagram_business_account;
-
-  return {
-    externalAccountId: ig.id,
-    handle: ig.username ?? ig.name ?? ig.id,
-    displayName: ig.name ?? ig.username ?? null,
-    avatarUrl: ig.profile_picture_url ?? null,
-    scopes: SCOPES,
-    // Publishing to Instagram is authorised with the linked Page's token.
-    accessToken: linked.access_token,
-    refreshToken: null,
-    expiresAt: null,
-  };
+  return { providerUserId: me.id ?? null, userToken, candidates };
 }

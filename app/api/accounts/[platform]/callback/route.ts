@@ -3,14 +3,20 @@ import { cookies } from "next/headers";
 import { getUser } from "@/lib/auth/session";
 import { upsertConnectedAccount } from "@/lib/services/accounts";
 import { PROVIDERS } from "@/lib/integrations/registry";
-import { sha256 } from "@/lib/security/crypto";
+import { encryptSecret, sha256 } from "@/lib/security/crypto";
+import { CONNECT_COOKIE, CONNECT_COOKIE_MAX_AGE } from "@/lib/integrations/connect-session";
 import { logger } from "@/lib/logger";
 import { OAUTH_STATE_COOKIE } from "../connect/route";
+import type { ExchangeResult } from "@/lib/integrations/types";
 import type { PlatformId } from "@/types/social";
 
 /**
  * OAuth callback: validates state, exchanges the code for tokens via the provider's auth
  * module, and stores the connection with the token encrypted at rest.
+ *
+ * When the provider offers more than one account — several Facebook Pages, several linked
+ * Instagram accounts — nothing is stored yet. Choosing for them is how a post ends up on
+ * the wrong brand, so the user is sent to a picker instead.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ platform: string }> }) {
   const { platform } = await params;
@@ -46,20 +52,39 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { exchangeCode } = await import(`@/lib/integrations/${id}/auth`).catch(() => ({ exchangeCode: null }));
     if (!exchangeCode) return fail("not_implemented");
 
-    const result = await exchangeCode({ code, redirectUri: `${origin}/api/accounts/${id}/callback` });
+    const result: ExchangeResult = await exchangeCode({ code, redirectUri: `${origin}/api/accounts/${id}/callback` });
 
+    if (result.candidates.length > 1) {
+      // Only the user token is held, encrypted and briefly: the picker re-lists the
+      // candidates on selection rather than parking several account tokens in a cookie.
+      jar.set(
+        CONNECT_COOKIE,
+        encryptSecret(JSON.stringify({
+          platform: id,
+          workspaceId: stored.workspaceId,
+          userToken: result.userToken,
+          providerUserId: result.providerUserId,
+        })),
+        { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: CONNECT_COOKIE_MAX_AGE },
+      );
+      return NextResponse.redirect(`${origin}/accounts/connect/${id}`);
+    }
+
+    const account = result.candidates[0];
     await upsertConnectedAccount({
       workspaceId: stored.workspaceId,
       userId: user.id,
       platform: id,
-      externalAccountId: result.externalAccountId,
-      handle: result.handle,
-      displayName: result.displayName ?? null,
-      avatarUrl: result.avatarUrl ?? null,
-      scopes: result.scopes ?? [],
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken ?? null,
-      expiresAt: result.expiresAt ?? null,
+      externalAccountId: account.externalAccountId,
+      handle: account.handle,
+      displayName: account.displayName ?? null,
+      avatarUrl: account.avatarUrl ?? null,
+      followers: account.followers ?? null,
+      scopes: account.scopes ?? [],
+      accessToken: account.accessToken,
+      refreshToken: account.refreshToken ?? null,
+      expiresAt: account.expiresAt ?? null,
+      metadata: result.providerUserId ? { provider_user_id: result.providerUserId } : {},
     });
 
     return NextResponse.redirect(`${origin}/accounts?connected=${id}`);
