@@ -93,17 +93,43 @@ export const graphPost = <T>(path: string, params: Record<string, string>): Prom
     body: new URLSearchParams(params),
   });
 
-/** The authorize URL both providers send people to; only the scopes differ. */
-export function buildMetaAuthorizeUrl(input: { clientId: string; redirectUri: string; state: string; scopes: string[] }) {
+/**
+ * The authorize URL both providers send people to.
+ *
+ * Meta has two login products and they ask for permissions differently:
+ *
+ *   Facebook Login              — permissions listed in `scope`
+ *   Facebook Login for Business — permissions fixed in a configuration built in the app
+ *                                 dashboard, and referenced by `config_id`
+ *
+ * Sending `scope` to an app set up for the Business product is rejected as "Invalid
+ * Scopes", so a configuration id, when one is set, takes over and the scopes are left
+ * out entirely. `override_default_response_type` is what keeps a code coming back
+ * rather than whatever the configuration itself defaults to.
+ */
+export function buildMetaAuthorizeUrl(input: {
+  clientId: string; redirectUri: string; state: string; scopes: string[]; configId?: string | null;
+}) {
   const params = new URLSearchParams({
     client_id: input.clientId,
     redirect_uri: input.redirectUri,
     state: input.state,
     response_type: "code",
-    scope: input.scopes.join(","),
   });
+
+  if (input.configId) {
+    params.set("config_id", input.configId);
+    params.set("override_default_response_type", "true");
+  } else {
+    params.set("scope", input.scopes.join(","));
+  }
+
   return `${OAUTH_DIALOG}?${params}`;
 }
+
+/** The Business-login configuration for a platform, when this deployment uses one. */
+export const loginConfigId = (platform: "facebook" | "instagram"): string | null =>
+  process.env[`${platform.toUpperCase()}_LOGIN_CONFIG_ID`]?.trim() || null;
 
 interface TokenResponse { access_token: string; expires_in?: number }
 

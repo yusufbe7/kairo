@@ -1,5 +1,5 @@
 import "server-only";
-import { buildMetaAuthorizeUrl, exchangeForLongLivedToken, graphGet, listPages, MetaError, requireEnv } from "@/lib/integrations/meta/graph";
+import { buildMetaAuthorizeUrl, exchangeForLongLivedToken, graphGet, listPages, loginConfigId, MetaError, requireEnv } from "@/lib/integrations/meta/graph";
 import type { ConnectableAccount, ExchangeResult } from "@/lib/integrations/types";
 
 /**
@@ -14,7 +14,13 @@ const PAGE_FIELDS = "id,name,username,access_token,fan_count,picture{url}";
 
 export async function buildAuthorizeUrl(input: { state: string; redirectUri: string }): Promise<string> {
   const { clientId } = requireEnv("FACEBOOK_CLIENT_ID", "FACEBOOK_CLIENT_SECRET");
-  return buildMetaAuthorizeUrl({ clientId, redirectUri: input.redirectUri, state: input.state, scopes: SCOPES });
+  return buildMetaAuthorizeUrl({
+    clientId,
+    redirectUri: input.redirectUri,
+    state: input.state,
+    scopes: SCOPES,
+    configId: loginConfigId("facebook"),
+  });
 }
 
 /** Every Page this token can publish to. Re-run when the picker completes. */

@@ -342,3 +342,4 @@ tests/             vitest unit tests
 | `REDIS_URL` | production | Queue + distributed rate limiting |
 | `MEDIA_MAX_BYTES`, `LOG_PERSIST_LEVEL` | no | Upload ceiling, log persistence threshold |
 | `INSTAGRAM_*`, `FACEBOOK_*`, `TIKTOK_*`, `LINKEDIN_*`, `X_*`, `YOUTUBE_*`, `TELEGRAM_BOT_TOKEN` | per provider | Listed with ✓/✗ at `/admin/integrations` |
+| `FACEBOOK_LOGIN_CONFIG_ID`, `INSTAGRAM_LOGIN_CONFIG_ID` | only for Facebook Login **for Business** | Sends `config_id` instead of `scope` |
