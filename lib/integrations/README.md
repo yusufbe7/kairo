@@ -46,8 +46,31 @@ claims a provider works until both are updated — that is deliberate.
 
 ## Current status
 
-All seven providers are declared in the registry with their required environment variables, and
-every capability is `false`: the schema, OAuth plumbing, token encryption, queue and worker are
-built, but no provider's API calls are implemented yet. The UI reflects this honestly —
-accounts show "Not configured", publishing is refused with a clear reason, and analytics
-show empty states rather than invented numbers.
+| Provider | Connect | Publish | Analytics | Inbox |
+|---|---|---|---|---|
+| Facebook | ✅ Pages | ✅ text, photo, carousel, video | — | — |
+| Instagram | ✅ Business/Creator | ✅ photo, carousel, Reels, Stories | — | — |
+| TikTok, LinkedIn, X, YouTube, Telegram | — | — | — | — |
+
+Facebook and Instagram share `meta/graph.ts`: one transport, one error classification and one
+token exchange, because they are the same API underneath.
+
+### What the Meta modules do and do not do
+
+- **Facebook stores a Page**, never a personal profile — only Pages can be posted to through the
+  API. An account that administers several Pages gets the first one; choosing between them needs
+  a picker in the connect flow, which does not exist yet.
+- **Instagram requires a Business or Creator account linked to a Page.** The connect flow finds
+  that Page and stores the Instagram account with the Page's token.
+- **Page tokens are derived from a long-lived user token**, so they do not expire while access is
+  granted. A revoked token is caught on publish and flips the account to `expired` with a message
+  telling the user to reconnect, instead of retrying into the same wall.
+- **Instagram video is published as a Reel** and polled until Instagram finishes processing it.
+  Running out of patience is reported as retryable on purpose: nothing has been published at that
+  point, so another attempt costs a wasted container rather than a duplicate post.
+- **Mixed photo-and-video Instagram carousels are refused** with a reason rather than silently
+  dropping the video.
+
+Analytics and inbox are still unimplemented everywhere, so both show empty states rather than
+invented numbers. The remaining five providers have their environment variables declared and
+nothing behind them; the UI says "Not implemented" rather than pretending otherwise.
