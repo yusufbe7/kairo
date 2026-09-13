@@ -9,9 +9,22 @@ import type { ConnectableAccount, ExchangeResult } from "@/lib/integrations/type
  * Meta's rule, not ours. So the flow runs through Facebook's dialog and offers every
  * Instagram account reachable that way, each with its linked Page's token.
  */
-// Instagram publishing reaches the account through its linked Page, so the two page
-// permissions are required alongside the two Instagram ones — and nothing else is.
-const SCOPES = ["instagram_basic", "instagram_content_publish", "pages_show_list", "pages_read_engagement"];
+/**
+ * Instagram publishing reaches the account through its linked Page, so the two page
+ * permissions come along with the two Instagram ones.
+ *
+ * `business_management` is here because Meta lists it as required for the "Instagram API
+ * with Facebook login" use case, not because anything below calls the Business Manager
+ * API — leaving it out makes the use case itself unavailable. Facebook's own scopes do
+ * not include it, since the Pages use case does not require it.
+ */
+const SCOPES = [
+  "instagram_basic",
+  "instagram_content_publish",
+  "pages_show_list",
+  "pages_read_engagement",
+  "business_management",
+];
 const PAGE_FIELDS = "id,name,access_token,instagram_business_account{id,username,name,profile_picture_url,followers_count}";
 
 export async function buildAuthorizeUrl(input: { state: string; redirectUri: string }): Promise<string> {

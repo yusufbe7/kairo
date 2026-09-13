@@ -127,9 +127,19 @@ export function buildMetaAuthorizeUrl(input: {
   return `${OAUTH_DIALOG}?${params}`;
 }
 
-/** The Business-login configuration for a platform, when this deployment uses one. */
+/**
+ * The Business-login configuration for a platform, when this deployment uses one.
+ *
+ * One configuration can serve both providers as long as it carries every permission
+ * either flow needs, so `META_LOGIN_CONFIG_ID` covers that case with a single value.
+ * A per-platform variable wins when set, for deployments that keep them separate —
+ * which is the tidier option, since a shared configuration asks everyone for Instagram
+ * permissions even when they are only connecting a Facebook Page.
+ */
 export const loginConfigId = (platform: "facebook" | "instagram"): string | null =>
-  process.env[`${platform.toUpperCase()}_LOGIN_CONFIG_ID`]?.trim() || null;
+  process.env[`${platform.toUpperCase()}_LOGIN_CONFIG_ID`]?.trim() ||
+  process.env.META_LOGIN_CONFIG_ID?.trim() ||
+  null;
 
 interface TokenResponse { access_token: string; expires_in?: number }
 
