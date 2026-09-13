@@ -14,8 +14,7 @@ export type { PublishRequest, PublishResult, Publisher };
  * below, and flip `capabilities.publish` to true in lib/integrations/registry.ts.
  */
 const PUBLISHERS: Partial<Record<PlatformId, () => Promise<Publisher>>> = {
-  facebook: async () => (await import("@/lib/integrations/facebook/publish")).facebookPublisher,
-  instagram: async () => (await import("@/lib/integrations/instagram/publish")).instagramPublisher,
+  // instagram: async () => (await import("@/lib/integrations/instagram/publish")).instagramPublisher,
 };
 
 export async function publishToPlatform(request: PublishRequest): Promise<PublishResult> {
