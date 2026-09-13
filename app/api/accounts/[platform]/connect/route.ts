@@ -5,6 +5,7 @@ import { assertCanConnect } from "@/lib/services/accounts";
 import { PROVIDERS } from "@/lib/integrations/registry";
 import { randomToken, sha256 } from "@/lib/security/crypto";
 import { AppError } from "@/lib/errors";
+import { MetaError } from "@/lib/integrations/meta/graph";
 import { logger } from "@/lib/logger";
 import type { PlatformId } from "@/types/social";
 
@@ -48,6 +49,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   } catch (error) {
     if (error instanceof AppError) {
       logger.warn("oauth.connect_blocked", error.userMessage, { platform: id, code: error.code });
+      return NextResponse.redirect(`${origin}/accounts?error=${encodeURIComponent(error.code.toLowerCase())}`);
+    }
+    // A provider error carries its own reason; keeping it means the accounts page can
+    // say which setting is wrong instead of "something went wrong".
+    if (error instanceof MetaError) {
+      logger.error("oauth.connect_blocked", error.message, { platform: id, code: error.code });
       return NextResponse.redirect(`${origin}/accounts?error=${encodeURIComponent(error.code.toLowerCase())}`);
     }
     logger.error("oauth.connect_failed", error instanceof Error ? error.message : "Unknown error", { platform: id });

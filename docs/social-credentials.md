@@ -52,6 +52,24 @@ alternative — though `https://kairohub.pro/data-deletion` remains a valid answ
 
 ---
 
+## One App ID, not two
+
+Meta shows **two different ids** and picking the wrong one is the most common way this breaks:
+
+| Where you see it | What it is | Use it? |
+|---|---|---|
+| **App settings → Basic → App ID** | The Facebook App ID, a long number | ✅ This one, for both `FACEBOOK_CLIENT_ID` and `INSTAGRAM_CLIENT_ID` |
+| Instagram product page → "Instagram App ID" | A separate id for Instagram's own login product | ❌ Never here |
+
+Kairo publishes to Instagram through the **Instagram Graph API**, which authorises over Facebook
+Login — so both providers use the same Facebook App ID and App secret, from the app that has the
+Instagram product added.
+
+Using the Instagram App ID sends you to a Facebook error page reading *"Invalid App ID: The
+provided app ID does not look like a valid app ID."* Kairo now checks the format before redirecting
+and says which setting is wrong instead, but the fix is the same: copy the id from **App settings →
+Basic**.
+
 ## Instagram — `INSTAGRAM_CLIENT_ID` / `INSTAGRAM_CLIENT_SECRET`
 
 Publishing to Instagram goes through the **Instagram Graph API**, not the old Basic Display API
@@ -62,7 +80,7 @@ Page — personal Instagram accounts cannot be published to by any tool, includi
 2. Pick use case **Other** → type **Business**.
 3. Add the **Instagram** product to the app.
 4. Under **App settings → Basic**, copy **App ID** → `INSTAGRAM_CLIENT_ID` and
-   **App secret** → `INSTAGRAM_CLIENT_SECRET`.
+   **App secret** → `INSTAGRAM_CLIENT_SECRET`. This is the Facebook App ID — see the warning above.
 5. Add the redirect URI under the Instagram product's OAuth settings.
 6. Request these permissions in **App review**: `instagram_basic`,
    `instagram_content_publish`, `pages_show_list`, `pages_read_engagement`.

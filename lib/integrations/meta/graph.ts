@@ -157,11 +157,26 @@ export async function listPages(userAccessToken: string, fields: string): Promis
   return result.data ?? [];
 }
 
+/**
+ * Meta app ids are numeric. The check matters because Meta's Instagram product page
+ * shows its own "Instagram App ID", which is not the same value and is not accepted by
+ * the Facebook login dialog this flow uses — sending it produces a dead-end error page
+ * on facebook.com that says nothing about which setting is wrong.
+ */
+const APP_ID_PATTERN = /^\d{8,}$/;
+
 export function requireEnv(idKey: string, secretKey: string) {
-  const clientId = process.env[idKey];
-  const clientSecret = process.env[secretKey];
+  const clientId = process.env[idKey]?.trim();
+  const clientSecret = process.env[secretKey]?.trim();
   if (!clientId || !clientSecret) {
     throw new MetaError("NOT_CONFIGURED", `${idKey} and ${secretKey} must be set on this deployment.`, false);
+  }
+  if (!APP_ID_PATTERN.test(clientId)) {
+    throw new MetaError(
+      "INVALID_APP_ID",
+      `${idKey} doesn't look like a Meta App ID. Use the numeric App ID from App settings → Basic — not the "Instagram App ID" shown on the Instagram product page.`,
+      false,
+    );
   }
   return { clientId, clientSecret };
 }

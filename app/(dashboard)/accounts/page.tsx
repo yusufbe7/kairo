@@ -6,8 +6,8 @@ import { allProviderStatuses } from "@/lib/integrations/registry";
 
 export const metadata: Metadata = { title: "Accounts" };
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ connect?: string }> }) {
-  const { connect } = await searchParams;
+export default async function Page({ searchParams }: { searchParams: Promise<{ connect?: string; error?: string; connected?: string }> }) {
+  const { connect, error, connected } = await searchParams;
   const ctx = await getWorkspacePage();
   const accounts = await listAccounts(ctx);
 
@@ -16,5 +16,5 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ c
     canConnect: p.configured && p.capabilities.connect,
   }));
 
-  return <AccountsView accounts={accounts} providers={providers} openConnect={connect === "1"} />;
+  return <AccountsView accounts={accounts} providers={providers} openConnect={connect === "1"} error={error ?? null} connected={connected ?? null} />;
 }
