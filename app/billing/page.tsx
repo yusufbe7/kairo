@@ -4,6 +4,7 @@ import { getProfile, getUser } from "@/lib/auth/session";
 import { getWorkspacePage } from "@/lib/workspace/context";
 import { getSubscription, trialDaysLeft } from "@/lib/billing/subscription";
 import { isBillingConfigured, priceIdFor } from "@/lib/billing/stripe";
+import { isBillingEnforced } from "@/lib/billing/enforcement";
 import { BILLABLE_PLANS } from "@/lib/billing/plans";
 import { can } from "@/lib/permissions";
 import { BillingView } from "@/components/billing/billing-view";
@@ -15,7 +16,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ c
   if (!user) redirect("/login?next=/billing");
 
   const [{ checkout }, ctx, profile] = await Promise.all([searchParams, getWorkspacePage(), getProfile()]);
-  const subscription = await getSubscription(ctx.workspace.id);
+  const [subscription, billingEnforced] = await Promise.all([getSubscription(ctx.workspace.id), isBillingEnforced()]);
 
   // Which plans can actually be bought here — a plan without a Stripe Price is not offered.
   const purchasable = BILLABLE_PLANS.filter((plan) => priceIdFor(plan, "month") || priceIdFor(plan, "year"));
@@ -40,6 +41,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ c
         trialDaysLeft: trialDaysLeft(subscription),
         hasCustomer: Boolean(subscription.customerId),
       }}
+      billingEnforced={billingEnforced}
       checkoutResult={checkout === "success" ? "success" : checkout === "canceled" ? "canceled" : null}
     />
   );
