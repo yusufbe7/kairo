@@ -14,7 +14,7 @@ Have these ready before you start — they are the part that actually blocks app
 
 | Requirement | Detail |
 |---|---|
-| **A live HTTPS site** | Your Vercel URL works. Some reviewers reject `*.vercel.app`; a custom domain is safer. |
+| **A live HTTPS site** | `https://kairohub.pro` — a custom domain, which some reviewers require over `*.vercel.app`. |
 | **Privacy policy URL** | A real page at a stable URL. Every single platform requires it. |
 | **Terms of service URL** | Required by Meta, TikTok and X. |
 | **Data deletion instructions URL** | Required by Meta. A page explaining how a user removes their data. |
@@ -28,10 +28,10 @@ Kairo has none of these pages yet. They are the first thing to build if you inte
 Every provider needs the callback registered. Kairo's is always:
 
 ```
-https://your-domain.com/api/accounts/<platform>/callback
+https://kairohub.pro/api/accounts/<platform>/callback
 ```
 
-So `https://your-domain.com/api/accounts/instagram/callback`, `.../tiktok/callback`, and so on.
+So `https://kairohub.pro/api/accounts/instagram/callback`, `.../tiktok/callback`, and so on.
 Add the `http://localhost:3000/...` variant too where the provider allows it.
 
 ---

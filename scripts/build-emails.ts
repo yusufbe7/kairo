@@ -262,12 +262,12 @@ for (const t of TEMPLATES) {
 
 // --- Local preview: every template with sample values in place of the Go variables ---
 const SAMPLE: Record<string, string> = {
-  "{{ .SiteURL }}": "https://kairo.app",
+  "{{ .SiteURL }}": "https://kairohub.pro",
   "{{ .TokenHash }}": "8f2c1ad4e7b9036a5cf1d82be4470913",
   "{{ .Token }}": "418 205",
   "{{ .NewEmail }}": "you@example.com",
   "{{ .Email }}": "you@example.com",
-  "{{ .ConfirmationURL }}": "https://kairo.app/auth/confirm?token_hash=8f2c1ad4",
+  "{{ .ConfirmationURL }}": "https://kairohub.pro/auth/confirm?token_hash=8f2c1ad4",
 };
 const fill = (html: string) =>
   Object.entries(SAMPLE).reduce((acc, [k, v]) => acc.split(k).join(v), html);

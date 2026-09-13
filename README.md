@@ -142,7 +142,7 @@ Kairo is paid-only: `app/(dashboard)/layout.tsx` sends any workspace without a `
    a redeploy, because the webhook reads the plan from the Price itself.
 3. Add `STRIPE_SECRET_KEY` from **Developers → API keys**.
 4. Register the webhook at **Developers → Webhooks** pointing to
-   `https://your-domain.com/api/webhooks/stripe`, subscribed to `checkout.session.completed`,
+   `https://kairohub.pro/api/webhooks/stripe`, subscribed to `checkout.session.completed`,
    `customer.subscription.created`, `customer.subscription.updated`,
    `customer.subscription.deleted` and `invoice.payment_failed`. Copy its signing secret into
    `STRIPE_WEBHOOK_SECRET`.
@@ -187,7 +187,7 @@ Add each provider's credentials to `.env.local` (see `.env.example`). The callba
 with every provider is:
 
 ```
-https://your-domain.com/api/accounts/<platform>/callback
+https://kairohub.pro/api/accounts/<platform>/callback
 ```
 
 `/admin/integrations` shows a per-variable ✓/✗ checklist, which is the fastest way to debug a
@@ -235,8 +235,8 @@ npm run build && npm start
 ## 12. Deployment
 
 **Web app (Vercel):** import the repo, add every variable from `.env.example`, set
-`NEXT_PUBLIC_APP_URL` to your production URL, and add both `https://your-domain.com/auth/confirm` and
-`https://your-domain.com/auth/callback` to the Supabase redirect allowlist. Set the Supabase **Site URL**
+`NEXT_PUBLIC_APP_URL` to your production URL, and add both `https://kairohub.pro/auth/confirm` and
+`https://kairohub.pro/auth/callback` to the Supabase redirect allowlist. Set the Supabase **Site URL**
 to the same production origin — the email templates build every link from it.
 
 **Worker (separate service):** deploy the same repo with the start command `npm run worker`. It

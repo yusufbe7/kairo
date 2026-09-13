@@ -27,13 +27,13 @@ replace the message body with the contents of the file.
 
 Still in the dashboard, under **Authentication → URL Configuration**:
 
-- **Site URL** — your production origin, e.g. `https://kairo.vercel.app`. The templates build
+- **Site URL** — your production origin, e.g. `https://kairohub.pro`. The templates build
   their links from `{{ .SiteURL }}`, so if this is wrong every email links to the wrong place.
 - **Redirect URLs** — add all of these:
 
 ```
-https://<your-domain>/auth/confirm
-https://<your-domain>/auth/callback
+https://kairohub.pro/auth/confirm
+https://kairohub.pro/auth/callback
 http://localhost:3000/auth/confirm
 http://localhost:3000/auth/callback
 ```
@@ -52,7 +52,7 @@ need to verify a sending domain with SPF, DKIM and DMARC records — without tho
 email from a new domain lands in spam.
 
 Set the sender name to `Kairo` and the sender address to something on your own domain, such as
-`no-reply@your-domain.com`.
+`no-reply@kairohub.pro`.
 
 ## Why the links point at `/auth/confirm`
 
