@@ -78,6 +78,11 @@ configuration id into Vercel:
 META_LOGIN_CONFIG_ID=<id from the Configurations page>
 ```
 
+Store it as a **plain config value, not a secret**. A configuration id is not sensitive — it
+travels in the authorize URL in plain sight — and hosts keep secrets write-only, so saving it as
+one leaves an empty box in the dashboard with no way to check what was stored. `/admin/integrations`
+shows a ✓ and the variable that supplied it either way.
+
 **One configuration is enough for both providers**, as long as it carries every permission either
 flow needs — the union is `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`,
 `instagram_basic`, `instagram_content_publish` and `business_management`. That single variable

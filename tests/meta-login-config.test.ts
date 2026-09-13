@@ -34,3 +34,22 @@ describe("loginConfigId", () => {
     expect(loginConfigId("facebook")).toBe("fb-456");
   });
 });
+
+describe("loginConfigSource", () => {
+  it("names the variable that supplied the configuration", async () => {
+    const { loginConfigSource } = await import("@/lib/integrations/meta/graph");
+    vi.stubEnv("META_LOGIN_CONFIG_ID", "shared-123");
+    vi.stubEnv("FACEBOOK_LOGIN_CONFIG_ID", "");
+    expect(loginConfigSource("facebook")).toBe("META_LOGIN_CONFIG_ID");
+
+    vi.stubEnv("FACEBOOK_LOGIN_CONFIG_ID", "fb-456");
+    expect(loginConfigSource("facebook")).toBe("FACEBOOK_LOGIN_CONFIG_ID");
+  });
+
+  it("is null when nothing is set, which is what the admin row reports", async () => {
+    const { loginConfigSource } = await import("@/lib/integrations/meta/graph");
+    vi.stubEnv("META_LOGIN_CONFIG_ID", "");
+    vi.stubEnv("FACEBOOK_LOGIN_CONFIG_ID", "");
+    expect(loginConfigSource("facebook")).toBeNull();
+  });
+});

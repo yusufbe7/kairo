@@ -8,6 +8,7 @@ import { allProviderStatuses, PROVIDERS } from "@/lib/integrations/registry";
 import { PLATFORMS } from "@/lib/platforms";
 import { isAiConfigured } from "@/lib/ai";
 import { billingEnvStatus, isBillingConfigured } from "@/lib/billing/stripe";
+import { loginConfigSource } from "@/lib/integrations/meta/graph";
 
 export const metadata: Metadata = { title: "Integrations" };
 export const dynamic = "force-dynamic";
@@ -26,6 +27,8 @@ function EnvRow({ name, present }: { name: string; present: boolean }) {
  * capabilities are actually implemented. Secret values are never read or displayed —
  * only their presence.
  */
+const META_PLATFORMS: string[] = ["facebook", "instagram"];
+
 export default async function Page() {
   await requireSuperAdmin();
   const providers = allProviderStatuses();
@@ -89,7 +92,15 @@ export default async function Page() {
                   : <StatusBadge tone="failed">Not configured</StatusBadge>}
               </div>
 
-              <div className="mt-3.5">{PROVIDERS[p.platform].requiredEnv.map((name) => <EnvRow key={name} name={name} present={!p.missingEnv.includes(name)} />)}</div>
+              <div className="mt-3.5">
+                {PROVIDERS[p.platform].requiredEnv.map((name) => <EnvRow key={name} name={name} present={!p.missingEnv.includes(name)} />)}
+                {META_PLATFORMS.includes(p.platform) && (() => {
+                  // Vercel stores secrets write-only, so the dashboard shows an empty box
+                  // whether a value was saved or not. This row is the only way to tell.
+                  const source = loginConfigSource(p.platform as "facebook" | "instagram");
+                  return <EnvRow name={source ?? "META_LOGIN_CONFIG_ID"} present={Boolean(source)} />;
+                })()}
+              </div>
 
               <div className="mt-3.5 flex flex-wrap gap-1.5">
                 {(["connect", "publish", "analytics", "inbox"] as const).map((cap) => (
@@ -108,7 +119,10 @@ export default async function Page() {
       </div>
 
       <p className="mt-6 max-w-[720px] text-xs text-dim">
-        A provider becomes usable only when its credentials are set <em>and</em> its integration module is implemented.
+        Facebook and Instagram show a login-configuration row because Meta&rsquo;s &ldquo;Login for Business&rdquo; keeps
+        permissions in a configuration rather than in the request. It is optional — without one, scopes are sent instead —
+        and the row names whichever variable supplied it.
+        {" "}A provider becomes usable only when its credentials are set <em>and</em> its integration module is implemented.
         Setting environment variables alone will not make publishing work — see <code className="text-muted-foreground">lib/integrations/README.md</code> for what each module must export.
       </p>
     </>
