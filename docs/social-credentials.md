@@ -75,8 +75,21 @@ Open **Facebook Login for Business → Configurations → Create configuration**
 configuration id into Vercel:
 
 ```
-FACEBOOK_LOGIN_CONFIG_ID=<id from the Configurations page>
-INSTAGRAM_LOGIN_CONFIG_ID=<id of the configuration for the Instagram app>
+META_LOGIN_CONFIG_ID=<id from the Configurations page>
+```
+
+**One configuration is enough for both providers**, as long as it carries every permission either
+flow needs — the union is `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`,
+`instagram_basic`, `instagram_content_publish` and `business_management`. That single variable
+covers Facebook and Instagram alike.
+
+Two configurations are tidier if you want them: a Facebook-only connection then isn't asked for
+Instagram permissions on the consent screen, which is one less thing to justify at app review.
+Set them per platform, and they take precedence over the shared one:
+
+```
+FACEBOOK_LOGIN_CONFIG_ID=<id of the Pages configuration>
+INSTAGRAM_LOGIN_CONFIG_ID=<id of the Instagram configuration>
 ```
 
 Kairo then sends `config_id` instead of `scope`. Leave these blank and it uses scopes as before,
