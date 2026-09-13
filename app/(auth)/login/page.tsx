@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { LoginForm } from "@/components/auth/auth-form";
+import { SignInCard } from "@/components/auth/auth-form";
 
 export const metadata: Metadata = { title: "Sign in" };
 
 export default function Page() {
   return (
     <Suspense>
-      <LoginForm />
+      <SignInCard mode="signin" />
     </Suspense>
   );
 }

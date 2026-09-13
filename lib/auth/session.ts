@@ -1,10 +1,8 @@
 import "server-only";
 import { cache } from "react";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppError } from "@/lib/errors";
-import { PENDING_EMAIL_COOKIE } from "@/lib/auth/redirect";
 import type { ProfileRow } from "@/types/database";
 
 /** The verified user for this request (JWT checked by Supabase), or null. Cached per request. */
@@ -36,7 +34,3 @@ export async function requireUser() {
   return user;
 }
 
-/** The address a pending signup went to, so /verify-email can name it. Null once confirmed. */
-export async function getPendingEmail(): Promise<string | null> {
-  return (await cookies()).get(PENDING_EMAIL_COOKIE)?.value ?? null;
-}

@@ -208,7 +208,17 @@ export function LandingPage() {
       </section>
 
       <footer className="border-t border-border">
-        <div className={cn(wrap, "flex flex-wrap items-center justify-between gap-4 py-7")}><Logo size={18} /><span className="text-[12.5px] text-dim">© 2026 Kairo Labs. Made in Tashkent.</span></div>
+        <div className={cn(wrap, "flex flex-wrap items-center gap-x-6 gap-y-4 py-7")}>
+          <Logo size={18} />
+          <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[12.5px] text-dim" aria-label="Legal">
+            <Link href="/privacy" className="transition-colors hover:text-foreground">Privacy</Link>
+            <Link href="/terms" className="transition-colors hover:text-foreground">Terms</Link>
+            <Link href="/data-deletion" className="transition-colors hover:text-foreground">Delete your data</Link>
+            <a href="mailto:support@kairohub.pro" className="transition-colors hover:text-foreground">Contact</a>
+          </nav>
+          <span className="flex-1" />
+          <span className="text-[12.5px] text-dim">© {new Date().getFullYear()} Kairo Labs. Made in Tashkent.</span>
+        </div>
       </footer>
     </div>
   );
