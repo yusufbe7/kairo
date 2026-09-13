@@ -1,20 +1,29 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import type { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { PENDING_EMAIL_COOKIE, safeNext } from "@/lib/auth/redirect";
+import { logger } from "@/lib/logger";
 
 /**
- * Supabase redirects here after email confirmation, password reset and OAuth sign-in.
- * Exchanges the code for a session cookie, then continues to `next`.
+ * PKCE code exchange. Kairo's own email templates point at /auth/confirm instead, which
+ * works across devices; this route stays for Supabase's built-in templates, OAuth sign-in
+ * and any link that was already in someone's inbox before the templates were switched.
  */
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = request.nextUrl;
+  const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
-  const raw = searchParams.get("next") ?? "/dashboard";
-  const next = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard"; // no open redirects
+  const next = safeNext(searchParams.get("next"));
 
-  if (!code) return NextResponse.redirect(`${origin}/login?error=link_invalid`);
+  if (!code) redirect("/verify-email?error=link_expired");
 
   const supabase = await createClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) return NextResponse.redirect(`${origin}/login?error=link_expired`);
-  return NextResponse.redirect(`${origin}${next}`);
+  if (error) {
+    logger.warn("auth.callback_failed", error.message);
+    redirect("/verify-email?error=link_expired");
+  }
+
+  (await cookies()).delete(PENDING_EMAIL_COOKIE);
+  redirect(next);
 }

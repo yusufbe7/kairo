@@ -11,7 +11,8 @@ Next.js 15 (App Router) · TypeScript · Tailwind · Supabase (Postgres, Auth, S
 
 Everything below runs against the real database with server-side authorization and row-level security:
 
-- **Auth** — register, log in, log out, email confirmation, forgot/reset password, protected routes
+- **Auth** — register, log in, log out, email confirmation (designed templates, cross-device links,
+  resend with cooldown), forgot/reset password, protected routes
 - **Workspaces** — auto-created on signup, multiple per user, switcher, invitations by email, role changes, removal
 - **Roles** — owner / admin / editor / member / viewer, enforced in server actions *and* in RLS policies
 - **Posts** — create, edit, duplicate, delete, save draft, schedule, reschedule (single and bulk), retry
@@ -64,7 +65,8 @@ Requires Node 20+.
    openssl rand -base64 32   # → TOKEN_ENCRYPTION_KEY
    ```
 4. Under **Authentication → URL Configuration**, set the site URL to `http://localhost:3000` and add
-   `http://localhost:3000/auth/callback` as a redirect URL.
+   both `http://localhost:3000/auth/confirm` and `http://localhost:3000/auth/callback` as redirect URLs.
+5. Paste Kairo's own email templates in — see section 5 below.
 
 ## 3. Database migration
 
@@ -97,7 +99,23 @@ Register that email in the app first. This creates a **separate** workspace flag
 demo posts, accounts, conversations and 60 days of analytics — your real workspace is untouched,
 and demo accounts have no stored tokens, so they can never publish.
 
-## 5. OAuth provider configuration
+## 5. Auth emails
+
+`supabase/templates/` holds the confirmation, password reset, invite, magic link, email change and
+reauthentication emails, generated from one shared layout:
+
+```bash
+npm run emails     # regenerates the templates + _preview.html
+```
+
+Open `supabase/templates/_preview.html` in a browser to see all six, then follow
+[`supabase/templates/README.md`](supabase/templates/README.md) to paste them into the dashboard.
+
+**Configure custom SMTP before launch.** Supabase's built-in email service is rate limited to a few
+messages an hour and is documented as development-only — without your own SMTP provider most
+signups never receive their confirmation link.
+
+## 6. OAuth provider configuration
 
 Add each provider's credentials to `.env.local` (see `.env.example`). The callback URL to register
 with every provider is:
@@ -110,7 +128,7 @@ https://your-domain.com/api/accounts/<platform>/callback
 deployment. Remember that credentials are necessary but not sufficient — the integration module
 must exist too.
 
-## 6. Redis
+## 7. Redis
 
 ```bash
 docker run -p 6379:6379 redis:7
@@ -121,7 +139,7 @@ Optional in development. Without it the rate limiter falls back to in-process me
 polls the database instead of consuming a queue. **Use Redis in production**, where serverless
 instances don't share memory.
 
-## 7. Worker startup
+## 8. Worker startup
 
 ```bash
 npm run worker
@@ -134,7 +152,7 @@ stops immediately on permanent failures like bad credentials, and notifies works
 result. It must run as a long-lived process — Railway, Fly.io, Render, or a container — not on Vercel's
 serverless runtime.
 
-## 8. Development
+## 9. Development
 
 ```bash
 npm run dev        # http://localhost:3000
@@ -142,17 +160,18 @@ npm run typecheck  # strict TypeScript, no `any`
 npm test           # vitest unit tests
 ```
 
-## 9. Production build
+## 10. Production build
 
 ```bash
 npm run build && npm start
 ```
 
-## 10. Deployment
+## 11. Deployment
 
 **Web app (Vercel):** import the repo, add every variable from `.env.example`, set
-`NEXT_PUBLIC_APP_URL` to your production URL, and add `https://your-domain.com/auth/callback` to the
-Supabase redirect allowlist.
+`NEXT_PUBLIC_APP_URL` to your production URL, and add both `https://your-domain.com/auth/confirm` and
+`https://your-domain.com/auth/callback` to the Supabase redirect allowlist. Set the Supabase **Site URL**
+to the same production origin — the email templates build every link from it.
 
 **Worker (separate service):** deploy the same repo with the start command `npm run worker`. It
 needs `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `TOKEN_ENCRYPTION_KEY` and
@@ -173,11 +192,12 @@ revoked from the `authenticated` role.
 
 ```
 app/
-  (auth)/          login, register, forgot-password, reset-password
+  (auth)/          login, register, verify-email, forgot-password, reset-password
   (dashboard)/     overview, create, calendar, posts, analytics, inbox, accounts, media, ai, settings, help
   admin/           separate control centre — never mixed into the user dashboard
   api/accounts/    OAuth connect + callback per platform
-  auth/callback/   Supabase code exchange
+  auth/confirm/    token-hash verification — the link in every Kairo auth email
+  auth/callback/   Supabase PKCE code exchange (OAuth, legacy links)
 components/        layout, dashboard, editor, calendar, posts, analytics, inbox, accounts, media, ai, settings, admin, auth, social, ui
 lib/
   actions/         server actions — the only mutation entry points
@@ -188,7 +208,7 @@ lib/
   supabase/        server / admin / browser / middleware clients
   permissions, validation, security, logger, time, env
 workers/publish.ts scheduled publishing worker
-supabase/          migrations, RLS tests
+supabase/          migrations, RLS tests, auth email templates
 tests/             vitest unit tests
 ```
 

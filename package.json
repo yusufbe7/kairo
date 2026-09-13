@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "worker": "tsx workers/publish.ts",
     "db:seed": "tsx scripts/seed.ts",
+    "emails": "tsx scripts/build-emails.ts",
     "db:types": "supabase gen types typescript --linked > types/supabase.ts",
     "test": "vitest run",
     "test:watch": "vitest"
