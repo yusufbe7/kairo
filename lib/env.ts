@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { appUrl } from "@/lib/app-url";
 
 /**
  * Server environment. Validated lazily (on first use) so `next build` works
@@ -7,7 +8,7 @@ import { z } from "zod";
  * Only NEXT_PUBLIC_* values are ever sent to the browser.
  */
 const schema = z.object({
-  NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
+  NEXT_PUBLIC_APP_URL: z.string().url().default(appUrl()),
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(20),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20),

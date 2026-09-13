@@ -2,13 +2,14 @@ import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { appUrl } from "@/lib/app-url";
 import "./globals.css";
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const url = appUrl();
 
 export const metadata: Metadata = {
   // Without metadataBase, Open Graph URLs stay relative and previews come up blank.
-  metadataBase: new URL(appUrl),
+  metadataBase: new URL(url),
   title: { default: "Kairo — Create once. Publish everywhere.", template: "%s · Kairo" },
   description: "Plan, create, schedule and analyze your social content from one beautifully designed workspace.",
   openGraph: {
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
     siteName: "Kairo",
     title: "Kairo — Create once. Publish everywhere.",
     description: "Plan, create, schedule and analyze your social content from one beautifully designed workspace.",
-    url: appUrl,
+    url,
   },
   twitter: {
     card: "summary_large_image",
