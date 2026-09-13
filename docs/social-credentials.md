@@ -90,10 +90,16 @@ Permissions to tick either way:
 | App | Permissions |
 |---|---|
 | Facebook | `pages_show_list`, `pages_manage_posts`, `pages_read_engagement` |
-| Instagram | `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_read_engagement` |
+| Instagram | `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_read_engagement`, `business_management` |
 
-Kairo asks for nothing beyond these — no `business_management`, because it never touches the
-Business Manager API.
+Kairo asks for nothing beyond these. `business_management` appears on the Instagram list only
+because Meta requires it for the "Instagram API with Facebook login" use case — nothing in the
+integration calls the Business Manager API, and Facebook's own list leaves it out.
+
+Meta's dashboard writes the publishing permission as `instagram_content_publishing` in places and
+`instagram_content_publish` in its permissions reference. **Tick whatever the dashboard lists** —
+and note that with a Login for Business configuration the scope names in this repo are never sent
+at all, because the configuration carries the permissions instead.
 
 ### If those permissions aren't offered
 
