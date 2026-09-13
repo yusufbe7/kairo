@@ -85,8 +85,26 @@ so plain Facebook Login apps need no change.
 **Or swap the product.** Remove Facebook Login for Business from the app and add plain
 **Facebook Login** instead. Scopes then work directly, and the two variables stay empty.
 
-Permissions to tick either way: `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`,
-`business_management`, plus `instagram_basic` and `instagram_content_publish` for Instagram.
+Permissions to tick either way:
+
+| App | Permissions |
+|---|---|
+| Facebook | `pages_show_list`, `pages_manage_posts`, `pages_read_engagement` |
+| Instagram | `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_read_engagement` |
+
+Kairo asks for nothing beyond these — no `business_management`, because it never touches the
+Business Manager API.
+
+### If those permissions aren't offered
+
+A configuration only lists permissions the app has already unlocked, so a fresh app shows just
+`pages_show_list` and `business_management`. Open **Use cases** in the app's left menu and add the
+ones covering Page publishing and Instagram publishing; the rest appear in the configuration
+afterwards.
+
+Keep **User access token** selected in the configuration's Access token step. Kairo reads
+`/me/accounts` with a user token to collect Page tokens, so that is the shape it needs — the
+wizard's note that assets can't be selected is expected and harmless.
 
 ## One App ID, not two
 
@@ -127,9 +145,9 @@ anyone connect you need, in this order:
 
 1. **Business verification** — Meta verifies your company's legal existence with documents.
 2. **App review** for each advanced permission: `pages_show_list`, `pages_manage_posts`,
-   `pages_read_engagement`, `business_management`, and for Instagram `instagram_basic` and
-   `instagram_content_publish`. Each one needs a screencast showing a real person connecting an
-   account and publishing through your product.
+   `pages_read_engagement`, and for Instagram `instagram_basic` and `instagram_content_publish`.
+   Each one needs a screencast showing a real person connecting an account and publishing through
+   your product.
 3. **Switch the app to Live** once both are granted.
 
 Budget weeks, and expect at least one rejection asking for a clearer video.
@@ -142,8 +160,7 @@ The same Meta app can serve both, but a separate app keeps permissions and revie
 2. Add the **Facebook Login** product.
 3. **App settings → Basic** → App ID and App secret.
 4. **Facebook Login → Settings** → add the redirect URI to *Valid OAuth Redirect URIs*.
-5. Request `pages_manage_posts`, `pages_read_engagement`, `pages_show_list` and
-   `business_management` in app review.
+5. Request `pages_manage_posts`, `pages_read_engagement` and `pages_show_list` in app review.
 
 Only Facebook **Pages** can be posted to programmatically, not personal profiles.
 

@@ -9,7 +9,9 @@ import type { ConnectableAccount, ExchangeResult } from "@/lib/integrations/type
  * Meta's rule, not ours. So the flow runs through Facebook's dialog and offers every
  * Instagram account reachable that way, each with its linked Page's token.
  */
-const SCOPES = ["instagram_basic", "instagram_content_publish", "pages_show_list", "pages_read_engagement", "business_management"];
+// Instagram publishing reaches the account through its linked Page, so the two page
+// permissions are required alongside the two Instagram ones — and nothing else is.
+const SCOPES = ["instagram_basic", "instagram_content_publish", "pages_show_list", "pages_read_engagement"];
 const PAGE_FIELDS = "id,name,access_token,instagram_business_account{id,username,name,profile_picture_url,followers_count}";
 
 export async function buildAuthorizeUrl(input: { state: string; redirectUri: string }): Promise<string> {

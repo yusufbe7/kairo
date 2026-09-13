@@ -9,7 +9,11 @@ import type { ConnectableAccount, ExchangeResult } from "@/lib/integrations/type
  * So what gets stored is a Page, with the Page access token derived from the user's
  * long-lived token, which does not expire while access is granted.
  */
-const SCOPES = ["pages_show_list", "pages_manage_posts", "pages_read_engagement", "business_management"];
+// Exactly what the calls below need and nothing more: /me/accounts needs
+// pages_show_list, publishing needs pages_manage_posts, and the follower count on the
+// picker needs pages_read_engagement. Every extra permission is one more thing to
+// justify at app review and one more reason for someone to decline the consent screen.
+const SCOPES = ["pages_show_list", "pages_manage_posts", "pages_read_engagement"];
 const PAGE_FIELDS = "id,name,username,access_token,fan_count,picture{url}";
 
 export async function buildAuthorizeUrl(input: { state: string; redirectUri: string }): Promise<string> {
