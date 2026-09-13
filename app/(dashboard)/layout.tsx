@@ -1,0 +1,31 @@
+import { redirect } from "next/navigation";
+import { AppShell } from "@/components/layout/app-shell";
+import { WorkspaceProvider, type WorkspaceSummary } from "@/components/providers/workspace-provider";
+import { getProfile, getUser } from "@/lib/auth/session";
+import { getWorkspacePage } from "@/lib/workspace/context";
+import { listNotifications } from "@/lib/services/notifications";
+
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const user = await getUser();
+  if (!user) redirect("/login");
+
+  const ctx = await getWorkspacePage();
+  const profile = await getProfile();
+  const notifications = await listNotifications(ctx, 8);
+
+  const toSummary = (w: { id: string; name: string; timezone: string; plan_id: string }, role: WorkspaceSummary["role"]): WorkspaceSummary =>
+    ({ id: w.id, name: w.name, timezone: w.timezone, planId: w.plan_id, role });
+
+  return (
+    <WorkspaceProvider
+      value={{
+        workspace: toSummary(ctx.workspace, ctx.role),
+        workspaces: ctx.memberships.map((m) => toSummary(m.workspace, m.role)),
+        today: ctx.today,
+        user: { id: user.id, name: profile?.full_name ?? user.email?.split("@")[0] ?? "You", email: user.email ?? "" },
+      }}
+    >
+      <AppShell notifications={notifications} isSuperAdmin={profile?.is_super_admin ?? false}>{children}</AppShell>
+    </WorkspaceProvider>
+  );
+}

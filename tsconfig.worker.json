@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true
+  },
+  "include": ["workers/**/*.ts", "scripts/**/*.ts", "lib/**/*.ts", "data/**/*.ts", "types/**/*.ts"]
+}
