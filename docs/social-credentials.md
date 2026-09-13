@@ -78,6 +78,11 @@ configuration id into Vercel:
 META_LOGIN_CONFIG_ID=<id from the Configurations page>
 ```
 
+Store it as a **plain config value, not a secret**. A configuration id is not sensitive — it
+travels in the authorize URL in plain sight — and hosts keep secrets write-only, so saving it as
+one leaves an empty box in the dashboard with no way to check what was stored. `/admin/integrations`
+shows a ✓ and the variable that supplied it either way.
+
 **One configuration is enough for both providers**, as long as it carries every permission either
 flow needs — the union is `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`,
 `instagram_basic`, `instagram_content_publish` and `business_management`. That single variable
@@ -109,10 +114,13 @@ Kairo asks for nothing beyond these. `business_management` appears on the Instag
 because Meta requires it for the "Instagram API with Facebook login" use case — nothing in the
 integration calls the Business Manager API, and Facebook's own list leaves it out.
 
-Meta's dashboard writes the publishing permission as `instagram_content_publishing` in places and
-`instagram_content_publish` in its permissions reference. **Tick whatever the dashboard lists** —
-and note that with a Login for Business configuration the scope names in this repo are never sent
-at all, because the configuration carries the permissions instead.
+Meta's Instagram setup page calls the publishing permission `instagram_content_publishing` in its
+prose, but the permission itself is **`instagram_content_publish`** — that is what the
+configuration's permission list offers and what the API expects.
+
+`instagram_manage_comments` and `instagram_manage_insights` are not on the list because the inbox
+and analytics are not built. Adding them costs an extra justification at app review and a longer
+consent screen for no working feature.
 
 ### If those permissions aren't offered
 

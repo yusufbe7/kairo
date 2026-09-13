@@ -141,6 +141,19 @@ export const loginConfigId = (platform: "facebook" | "instagram"): string | null
   process.env.META_LOGIN_CONFIG_ID?.trim() ||
   null;
 
+/**
+ * Which variable supplied the configuration, or null when none did.
+ *
+ * Hosts store secrets write-only, so their dashboards show an empty box whether a value
+ * was saved or not. Reporting the source is how an administrator can tell.
+ */
+export function loginConfigSource(platform: "facebook" | "instagram"): string | null {
+  const specific = `${platform.toUpperCase()}_LOGIN_CONFIG_ID`;
+  if (process.env[specific]?.trim()) return specific;
+  if (process.env.META_LOGIN_CONFIG_ID?.trim()) return "META_LOGIN_CONFIG_ID";
+  return null;
+}
+
 interface TokenResponse { access_token: string; expires_in?: number }
 
 /**
