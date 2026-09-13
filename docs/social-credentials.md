@@ -52,6 +52,42 @@ alternative — though `https://kairohub.pro/data-deletion` remains a valid answ
 
 ---
 
+## Which Facebook Login product your app uses
+
+Meta ships two, and they ask for permissions in completely different ways:
+
+| Product | How permissions are requested | What Kairo needs |
+|---|---|---|
+| **Facebook Login** | listed in the `scope` parameter | nothing extra |
+| **Facebook Login for Business** | fixed in a **configuration** you build in the dashboard | the configuration's id |
+
+Look at your app's left menu. If it says **Facebook Login for Business** and has a
+**Configurations** section, you have the second one — and sending scopes to it is rejected with:
+
+> Invalid Scopes: pages_manage_posts, pages_read_engagement. This message is only shown to
+> developers.
+
+Two ways forward:
+
+**Use the configuration (recommended — it is the product you already have).**
+Open **Facebook Login for Business → Configurations → Create configuration**, choose the
+*Business asset* login type, tick the permissions the platform needs (below), save, and copy the
+configuration id into Vercel:
+
+```
+FACEBOOK_LOGIN_CONFIG_ID=<id from the Configurations page>
+INSTAGRAM_LOGIN_CONFIG_ID=<id of the configuration for the Instagram app>
+```
+
+Kairo then sends `config_id` instead of `scope`. Leave these blank and it uses scopes as before,
+so plain Facebook Login apps need no change.
+
+**Or swap the product.** Remove Facebook Login for Business from the app and add plain
+**Facebook Login** instead. Scopes then work directly, and the two variables stay empty.
+
+Permissions to tick either way: `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`,
+`business_management`, plus `instagram_basic` and `instagram_content_publish` for Instagram.
+
 ## One App ID, not two
 
 Meta shows **two different ids** and picking the wrong one is the most common way this breaks:

@@ -1,5 +1,5 @@
 import "server-only";
-import { buildMetaAuthorizeUrl, exchangeForLongLivedToken, graphGet, listPages, MetaError, requireEnv } from "@/lib/integrations/meta/graph";
+import { buildMetaAuthorizeUrl, exchangeForLongLivedToken, graphGet, listPages, loginConfigId, MetaError, requireEnv } from "@/lib/integrations/meta/graph";
 import type { ConnectableAccount, ExchangeResult } from "@/lib/integrations/types";
 
 /**
@@ -14,7 +14,13 @@ const PAGE_FIELDS = "id,name,access_token,instagram_business_account{id,username
 
 export async function buildAuthorizeUrl(input: { state: string; redirectUri: string }): Promise<string> {
   const { clientId } = requireEnv("INSTAGRAM_CLIENT_ID", "INSTAGRAM_CLIENT_SECRET");
-  return buildMetaAuthorizeUrl({ clientId, redirectUri: input.redirectUri, state: input.state, scopes: SCOPES });
+  return buildMetaAuthorizeUrl({
+    clientId,
+    redirectUri: input.redirectUri,
+    state: input.state,
+    scopes: SCOPES,
+    configId: loginConfigId("instagram"),
+  });
 }
 
 export async function listConnectable(userToken: string): Promise<ConnectableAccount[]> {
