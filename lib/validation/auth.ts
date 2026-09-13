@@ -11,6 +11,13 @@ export const registerSchema = z.object({
   timezone: z.string().max(64).optional(),
 });
 export const forgotSchema = z.object({ email });
+/**
+ * The address is optional: normally it comes from the pending-signup cookie, and the
+ * field is only shown when that cookie is gone. An empty field means "use the cookie".
+ */
+export const resendSchema = z.object({
+  email: z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), email.optional()),
+});
 export const resetSchema = z
   .object({ password, confirm: z.string() })
   .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "Passwords don't match." });
@@ -18,4 +25,5 @@ export const resetSchema = z
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type ForgotInput = z.infer<typeof forgotSchema>;
+export type ResendInput = z.infer<typeof resendSchema>;
 export type ResetInput = z.infer<typeof resetSchema>;

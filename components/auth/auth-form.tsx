@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { LoaderCircle, TriangleAlert, CircleCheck } from "lucide-react";
+import { LoaderCircle, TriangleAlert, CircleCheck, MailCheck, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/layout/logo";
-import { requestPasswordReset, signIn, signUp, updatePassword } from "@/lib/actions/auth";
-import { forgotSchema, loginSchema, registerSchema, resetSchema } from "@/lib/validation/auth";
+import { requestPasswordReset, resendConfirmation, signIn, signUp, updatePassword } from "@/lib/actions/auth";
+import { forgotSchema, loginSchema, registerSchema, resendSchema, resetSchema } from "@/lib/validation/auth";
 import type { ActionResult } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 
 function Shell({ title, subtitle, children, footer }: { title: string; subtitle: string; children: React.ReactNode; footer?: React.ReactNode }) {
   return (
@@ -30,6 +31,23 @@ function FormError({ message }: { message: string | null }) {
   return (
     <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-destructive/25 bg-destructive/[0.06] px-3.5 py-2.5 text-[13px] text-destructive">
       <TriangleAlert size={15} className="mt-px shrink-0" />{message}
+    </div>
+  );
+}
+
+/** Non-blocking notice: an expired link, a sent email — things that aren't form errors. */
+function Notice({ tone, children }: { tone: "warning" | "success"; children: React.ReactNode }) {
+  const warn = tone === "warning";
+  return (
+    <div
+      role="status"
+      className={cn(
+        "flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-[13px]",
+        warn ? "border-warning/25 bg-warning/[0.06] text-warning" : "border-success/25 bg-success/[0.06] text-success",
+      )}
+    >
+      {warn ? <TriangleAlert size={15} className="mt-px shrink-0" /> : <CircleCheck size={16} className="shrink-0" />}
+      <span>{children}</span>
     </div>
   );
 }
@@ -60,9 +78,17 @@ function useActionForm<T extends Record<string, unknown>>(schema: Parameters<typ
   return { form, formError, setFormError, apply };
 }
 
+/** Messages for the `?error=` the auth routes redirect back with. */
+const LINK_ERRORS: Record<string, string> = {
+  link_expired: "That link has expired or was already used. Sign in, or ask for a new one.",
+  link_invalid: "That link isn't valid. Ask for a new one.",
+};
+
 export function LoginForm() {
   const router = useRouter();
-  const next = useSearchParams().get("next") ?? "/dashboard";
+  const params = useSearchParams();
+  const next = params.get("next") ?? "/dashboard";
+  const linkError = LINK_ERRORS[params.get("error") ?? ""] ?? null;
   const [pending, start] = useTransition();
   const { form, formError, setFormError, apply } = useActionForm<{ email: string; password: string }>(loginSchema, { email: "", password: "" });
 
@@ -77,6 +103,7 @@ export function LoginForm() {
     <Shell title="Welcome back" subtitle="Sign in to your Kairo workspace."
       footer={<>New here? <Link href="/register" className="text-foreground underline underline-offset-[3px]">Create an account</Link></>}>
       <form onSubmit={onSubmit} className="flex flex-col gap-3.5" noValidate>
+        {linkError && <Notice tone="warning">{linkError}</Notice>}
         <FormError message={formError} />
         <Field label="Email" error={form.formState.errors.email?.message}>
           <Input type="email" autoComplete="email" autoFocus {...form.register("email")} />
@@ -98,7 +125,6 @@ export function LoginForm() {
 export function RegisterForm() {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [sent, setSent] = useState(false);
   const { form, formError, setFormError, apply } = useActionForm<{ fullName: string; email: string; password: string }>(registerSchema, { fullName: "", email: "", password: "" });
 
   const onSubmit = form.handleSubmit((values) => {
@@ -107,22 +133,12 @@ export function RegisterForm() {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const result = await signUp({ ...values, timezone });
       if (apply(result) && result.ok) {
-        if (result.data.needsConfirmation) setSent(true);
-        else router.replace("/dashboard");
+        // A real route, not local state: refreshing the page keeps the address and the
+        // resend button, and the back button from the inbox lands somewhere sensible.
+        router.replace(result.data.needsConfirmation ? "/verify-email" : "/dashboard");
       }
     });
   });
-
-  if (sent) {
-    return (
-      <Shell title="Check your inbox" subtitle="We sent you a link to confirm your email address. Open it to finish setting up your workspace."
-        footer={<Link href="/login" className="text-foreground underline underline-offset-[3px]">Back to sign in</Link>}>
-        <div className="flex items-center gap-2.5 rounded-xl border border-success/25 bg-success/[0.06] px-3.5 py-3 text-[13px] text-success">
-          <CircleCheck size={16} />Confirmation email sent.
-        </div>
-      </Shell>
-    );
-  }
 
   return (
     <Shell title="Create your workspace" subtitle="Free forever plan. No card required."
@@ -142,6 +158,86 @@ export function RegisterForm() {
           {pending && <LoaderCircle size={15} className="animate-spin" />}Create account
         </Button>
       </form>
+    </Shell>
+  );
+}
+
+const RESEND_COOLDOWN_SECONDS = 60;
+
+/**
+ * The screen people land on straight after signing up, and the one every expired
+ * confirmation link redirects back to — so there is always a way forward from here.
+ */
+export function VerifyEmailPanel({ email, expired }: { email: string | null; expired: boolean }) {
+  const [pending, start] = useTransition();
+  const [cooldown, setCooldown] = useState(0);
+  const [sent, setSent] = useState(false);
+  const { form, formError, setFormError, apply } = useActionForm<{ email: string }>(resendSchema, { email: "" });
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((seconds) => seconds - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
+  const onSubmit = form.handleSubmit((values) => {
+    setFormError(null);
+    setSent(false);
+    start(async () => {
+      if (apply(await resendConfirmation({ email: values.email }))) {
+        setSent(true);
+        setCooldown(RESEND_COOLDOWN_SECONDS);
+      }
+    });
+  });
+
+  return (
+    <Shell
+      title={expired ? "That link has expired" : "Check your inbox"}
+      subtitle={
+        expired
+          ? "Confirmation links are single-use and expire after 24 hours. Send yourself a fresh one."
+          : "Open the link we just emailed you and your workspace will be ready."
+      }
+      footer={
+        <>
+          Already confirmed?{" "}
+          <Link href="/login" className="text-foreground underline underline-offset-[3px]">Sign in</Link>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3.5">
+        {email && (
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-white/[0.025] px-3.5 py-3">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-brand/10">
+              <MailCheck size={15} className="text-brand" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[11.5px] uppercase tracking-[0.05em] text-dim">Sent to</span>
+              <span className="block truncate text-[13.5px] font-medium">{email}</span>
+            </span>
+          </div>
+        )}
+
+        {sent && <Notice tone="success">A new confirmation link is on its way.</Notice>}
+
+        <form onSubmit={onSubmit} className="flex flex-col gap-3.5" noValidate>
+          <FormError message={formError} />
+          {!email && (
+            <Field label="Email" error={form.formState.errors.email?.message}>
+              <Input type="email" autoComplete="email" placeholder="you@example.com" autoFocus {...form.register("email")} />
+            </Field>
+          )}
+          <Button type="submit" variant={expired ? "primary" : "default"} className="h-10" disabled={pending || cooldown > 0}>
+            {pending ? <LoaderCircle size={15} className="animate-spin" /> : <RotateCw size={14} />}
+            {cooldown > 0 ? `Resend in ${cooldown}s` : "Send a new link"}
+          </Button>
+        </form>
+
+        <p className="text-[12.5px] leading-relaxed text-dim">
+          Nothing after a minute or two? Check your spam folder — and make sure the address above is spelled correctly.
+        </p>
+      </div>
     </Shell>
   );
 }
