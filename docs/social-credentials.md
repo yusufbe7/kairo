@@ -34,6 +34,22 @@ https://kairohub.pro/api/accounts/<platform>/callback
 So `https://kairohub.pro/api/accounts/instagram/callback`, `.../tiktok/callback`, and so on.
 Add the `http://localhost:3000/...` variant too where the provider allows it.
 
+## Meta's other two URLs
+
+Facebook and Instagram also want two callbacks, and app review checks them. Both are built:
+
+| Meta field | URL |
+|---|---|
+| Deauthorize callback URL | `https://kairohub.pro/api/accounts/facebook/deauthorize` |
+| Data deletion **callback** URL | `https://kairohub.pro/api/accounts/facebook/data-deletion` |
+
+Swap `facebook` for `instagram` on that app. Both verify Meta's `signed_request` signature and
+delete the person's connected accounts and stored tokens; the deletion endpoint answers with a
+confirmation code and a status URL, as Meta requires.
+
+Because the callback endpoint exists, you no longer need the "data deletion instructions URL"
+alternative — though `https://kairohub.pro/data-deletion` remains a valid answer for it.
+
 ---
 
 ## Instagram — `INSTAGRAM_CLIENT_ID` / `INSTAGRAM_CLIENT_SECRET`
@@ -51,8 +67,18 @@ Page — personal Instagram accounts cannot be published to by any tool, includi
 6. Request these permissions in **App review**: `instagram_basic`,
    `instagram_content_publish`, `pages_show_list`, `pages_read_engagement`.
 
-In development mode the app works only for accounts you add as testers. Going live needs Meta's
-business verification and app review.
+In development mode the app works only for people with a role on it — admin, developer or tester.
+**This is what limits a Meta app to its own developers, and no amount of code changes it.** To let
+anyone connect you need, in this order:
+
+1. **Business verification** — Meta verifies your company's legal existence with documents.
+2. **App review** for each advanced permission: `pages_show_list`, `pages_manage_posts`,
+   `pages_read_engagement`, `business_management`, and for Instagram `instagram_basic` and
+   `instagram_content_publish`. Each one needs a screencast showing a real person connecting an
+   account and publishing through your product.
+3. **Switch the app to Live** once both are granted.
+
+Budget weeks, and expect at least one rejection asking for a clearer video.
 
 ## Facebook — `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET`
 

@@ -31,17 +31,20 @@ Everything below runs against the real database with server-side authorization a
 
 ### What is deliberately not finished
 
-**No social platform integration is implemented yet.** The schema, OAuth routes (with CSRF state
-validation), AES-256-GCM token encryption, the publishing abstraction, the queue and the worker are
-all built and tested — but no provider's API calls exist. So:
+**Facebook and Instagram publish; the other five providers do not.** The schema, OAuth routes
+(with CSRF state validation), AES-256-GCM token encryption, the publishing abstraction, the queue
+and the worker are shared by all of them — what the remaining five are missing is their own API
+calls. So:
 
-- Accounts show **"Not configured"** and the connect button is disabled per provider
-- Publishing returns a clear `NOT_IMPLEMENTED` error and the post is marked failed with that reason
-- Analytics and inbox stay empty rather than showing fabricated data
-- Inbox replies say *"not supported by this platform"* instead of pretending to send
+- **Facebook** — connect a Page, publish text, a photo, a photo carousel or a video
+- **Instagram** — connect a Business or Creator account, publish a photo, a carousel, a Reel or a Story
+- TikTok, LinkedIn, X, YouTube and Telegram show **"Not implemented"**, their connect button is
+  disabled, and publishing to them returns `NOT_IMPLEMENTED` rather than failing silently
+- Analytics and inbox are unimplemented everywhere and stay empty rather than showing invented data
 
-Setting the environment variables alone will not change this — each provider also needs its module.
-See `lib/integrations/README.md` for the two functions and one class each provider requires.
+Setting the environment variables alone does not enable a provider — it also needs its module.
+See `lib/integrations/README.md` for what each one requires, and for the limits of the two that
+are built.
 
 Also not built yet: the public developer API (`api_keys` table and hashing exist, `/api/v1/*` routes do not), and
 provider webhook handlers (`webhook_events` table with idempotency exists, routes do not).

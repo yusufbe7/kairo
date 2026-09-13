@@ -49,8 +49,10 @@ export async function disconnectAccount(ctx: WorkspaceContext, accountId: string
 /** Called by OAuth callbacks (service role) after a successful token exchange. */
 export async function upsertConnectedAccount(params: {
   workspaceId: string; userId: string; platform: PlatformId; externalAccountId: string; handle: string;
-  displayName?: string | null; avatarUrl?: string | null; scopes?: string[];
+  displayName?: string | null; avatarUrl?: string | null; scopes?: string[]; followers?: number | null;
   accessToken: string; refreshToken?: string | null; expiresAt?: Date | null;
+  /** Provider context, e.g. the account id a deauthorize callback will arrive with. */
+  metadata?: Record<string, unknown>;
 }) {
   const { encryptSecret } = await import("@/lib/security/crypto");
   const admin = createAdminClient();
@@ -60,6 +62,7 @@ export async function upsertConnectedAccount(params: {
       workspace_id: params.workspaceId, platform: params.platform, external_account_id: params.externalAccountId,
       handle: params.handle, display_name: params.displayName ?? null, avatar_url: params.avatarUrl ?? null,
       status: "connected", scopes: params.scopes ?? [], connected_by: params.userId, last_error: null,
+      followers_count: params.followers ?? null, metadata: params.metadata ?? {},
       token_expires_at: params.expiresAt?.toISOString() ?? null, last_synced_at: new Date().toISOString(),
     }, { onConflict: "workspace_id,platform,external_account_id" })
     .select("id")
@@ -77,6 +80,23 @@ export async function upsertConnectedAccount(params: {
 
   await audit({ action: "account.connected", actorId: params.userId, workspaceId: params.workspaceId, targetType: "social_account", targetId: accountId, metadata: { platform: params.platform } });
   return accountId;
+}
+
+/**
+ * What a publisher needs to act on an account: the provider's own id for it (a Page id,
+ * an Instagram user id) and a decrypted token. Server-only — never expose either.
+ */
+export async function getPublishingCredentials(accountId: string): Promise<{ externalAccountId: string; accessToken: string }> {
+  const { data, error } = await createAdminClient()
+    .from("social_accounts")
+    .select("external_account_id")
+    .eq("id", accountId)
+    .single();
+  if (error || !data) throw new AppError("NOT_FOUND", "That account is no longer connected.");
+  return {
+    externalAccountId: (data as { external_account_id: string }).external_account_id,
+    accessToken: await getAccessToken(accountId),
+  };
 }
 
 /** Server-only: decrypts a provider token for publishing/analytics. Never expose the result to the client. */
