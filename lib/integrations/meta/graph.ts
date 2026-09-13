@@ -201,6 +201,34 @@ export async function listPages(userAccessToken: string, fields: string): Promis
  */
 const APP_ID_PATTERN = /^\d{8,}$/;
 
+/**
+ * Which permissions the person actually granted.
+ *
+ * A Login for Business configuration decides this, not us, so a configuration saved
+ * with nothing selected produces a working token that can do nothing. Without this
+ * check the first symptom is /me/accounts coming back empty, which reads as "you have
+ * no Pages" — a misleading answer to a question about permissions.
+ */
+export async function grantedPermissions(userToken: string): Promise<Set<string>> {
+  const result = await graphGet<{ data?: { permission: string; status: string }[] }>("/me/permissions", {
+    access_token: userToken,
+  });
+  return new Set((result.data ?? []).filter((p) => p.status === "granted").map((p) => p.permission));
+}
+
+/** Throws naming exactly what is missing, so the fix is a checkbox rather than a guess. */
+export async function assertPermissions(userToken: string, required: string[], platformName: string) {
+  const granted = await grantedPermissions(userToken);
+  const missing = required.filter((permission) => !granted.has(permission));
+  if (missing.length === 0) return;
+
+  throw new MetaError(
+    "PERMISSIONS_MISSING",
+    `${platformName} didn't grant ${missing.join(", ")}. If this app uses Facebook Login for Business, add those permissions to its login configuration — the consent screen only offers what the configuration asks for.`,
+    false,
+  );
+}
+
 export function requireEnv(idKey: string, secretKey: string) {
   const clientId = process.env[idKey]?.trim();
   const clientSecret = process.env[secretKey]?.trim();

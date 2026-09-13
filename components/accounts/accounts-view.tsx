@@ -38,6 +38,8 @@ const CONNECT_ERRORS: Record<string, string> = {
   rate_limited: "The provider is rate limiting us right now. Try again in a few minutes.",
   provider_unavailable: "The provider isn't responding right now. Try again in a few minutes.",
   permission_denied: "The provider refused a permission this connection needs. Check the app's approved permissions.",
+  permissions_missing:
+    "You signed in, but the app wasn't granted the permissions it needs to publish. If it uses Facebook Login for Business, add those permissions to its login configuration — the consent screen only offers what the configuration asks for.",
   state_missing: "That connection attempt expired. Start again.",
   state_invalid: "That connection attempt couldn't be verified. Start again.",
   connect_expired: "That connection expired before you chose an account. Start again.",

@@ -1,5 +1,5 @@
 import "server-only";
-import { buildMetaAuthorizeUrl, exchangeForLongLivedToken, graphGet, listPages, loginConfigId, MetaError, requireEnv } from "@/lib/integrations/meta/graph";
+import { assertPermissions, buildMetaAuthorizeUrl, exchangeForLongLivedToken, graphGet, listPages, loginConfigId, MetaError, requireEnv } from "@/lib/integrations/meta/graph";
 import type { ConnectableAccount, ExchangeResult } from "@/lib/integrations/types";
 
 /**
@@ -14,6 +14,14 @@ import type { ConnectableAccount, ExchangeResult } from "@/lib/integrations/type
 // picker needs pages_read_engagement. Every extra permission is one more thing to
 // justify at app review and one more reason for someone to decline the consent screen.
 const SCOPES = ["pages_show_list", "pages_manage_posts", "pages_read_engagement"];
+
+/**
+ * The subset without which nothing works: finding the Pages and their tokens, and
+ * publishing. `pages_read_engagement` is asked for but only powers the follower count
+ * on the picker, so a connection missing it is degraded rather than broken — blocking
+ * it would refuse a setup that publishes perfectly well.
+ */
+const ESSENTIAL = ["pages_show_list", "pages_manage_posts"];
 const PAGE_FIELDS = "id,name,username,access_token,fan_count,picture{url}";
 
 export async function buildAuthorizeUrl(input: { state: string; redirectUri: string }): Promise<string> {
@@ -51,6 +59,9 @@ export async function exchangeCode(input: { code: string; redirectUri: string })
   const { accessToken: userToken } = await exchangeForLongLivedToken({
     clientId, clientSecret, code: input.code, redirectUri: input.redirectUri,
   });
+
+  // Fail on the real cause before the empty account list sends everyone hunting for Pages.
+  await assertPermissions(userToken, ESSENTIAL, "Facebook");
 
   const [me, candidates] = await Promise.all([
     graphGet<{ id?: string }>("/me", { access_token: userToken, fields: "id" }).catch(() => ({ id: undefined })),
