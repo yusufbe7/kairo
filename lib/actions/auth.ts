@@ -7,8 +7,8 @@ import { safeAction } from "@/lib/actions/safe-action";
 import { AppError, type ActionResult } from "@/lib/errors";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { audit } from "@/lib/services/audit";
-import { forgotSchema, loginSchema, registerSchema, resendSchema, resetSchema } from "@/lib/validation/auth";
-import { PENDING_EMAIL_COOKIE, PENDING_EMAIL_MAX_AGE } from "@/lib/auth/redirect";
+import { forgotSchema, googleSchema, loginSchema, registerSchema, resendSchema, resetSchema } from "@/lib/validation/auth";
+import { OAUTH_TZ_COOKIE, PENDING_EMAIL_COOKIE, PENDING_EMAIL_MAX_AGE } from "@/lib/auth/redirect";
 import { logger } from "@/lib/logger";
 import { isValidTimezone } from "@/lib/time";
 import { env } from "@/lib/env";
@@ -85,6 +85,38 @@ export const resendConfirmation = safeAction("auth.resend", resendSchema, async 
 
   await rememberPendingEmail(email);
   return { sent: true };
+});
+
+/**
+ * Starts Google sign-in and returns the URL to send the browser to.
+ *
+ * Google is both sign-up and sign-in: Supabase creates the user on first use and the
+ * signup trigger builds their profile and workspace, so there is no separate path.
+ * The code exchange happens in /auth/callback.
+ */
+export const signInWithGoogle = safeAction("auth.google", googleSchema, async (input) => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${env().NEXT_PUBLIC_APP_URL}/auth/callback?next=/dashboard`,
+      // Ask for a refresh token and let people pick which Google account to use
+      // instead of silently reusing whichever one the browser is signed into.
+      queryParams: { access_type: "offline", prompt: "select_account" },
+      skipBrowserRedirect: true,
+    },
+  });
+  if (error || !data.url) {
+    logger.warn("auth.google_unavailable", error?.message ?? "No authorize URL returned");
+    throw new AppError("NOT_CONFIGURED", "Google sign-in isn't available right now. Use your email and password instead.");
+  }
+
+  if (input.timezone && isValidTimezone(input.timezone)) {
+    (await cookies()).set(OAUTH_TZ_COOKIE, input.timezone, {
+      httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 900,
+    });
+  }
+  return { url: data.url };
 });
 
 export const requestPasswordReset = safeAction("auth.forgot", forgotSchema, async (input) => {

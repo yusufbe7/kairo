@@ -18,6 +18,9 @@ export const forgotSchema = z.object({ email });
 export const resendSchema = z.object({
   email: z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), email.optional()),
 });
+/** The browser timezone, so an OAuth signup does not land on a UTC workspace. */
+export const googleSchema = z.object({ timezone: z.string().max(64).optional() });
+
 export const resetSchema = z
   .object({ password, confirm: z.string() })
   .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "Passwords don't match." });

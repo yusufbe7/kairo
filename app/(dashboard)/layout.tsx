@@ -4,12 +4,19 @@ import { WorkspaceProvider, type WorkspaceSummary } from "@/components/providers
 import { getProfile, getUser } from "@/lib/auth/session";
 import { getWorkspacePage } from "@/lib/workspace/context";
 import { listNotifications } from "@/lib/services/notifications";
+import { getSubscription } from "@/lib/billing/subscription";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser();
   if (!user) redirect("/login");
 
   const ctx = await getWorkspacePage();
+
+  // Kairo is paid-only: without a trialing or active subscription there is no
+  // dashboard. /billing lives outside this group precisely so it stays reachable.
+  const subscription = await getSubscription(ctx.workspace.id);
+  if (!subscription.hasAccess) redirect("/billing");
+
   const profile = await getProfile();
   const notifications = await listNotifications(ctx, 8);
 

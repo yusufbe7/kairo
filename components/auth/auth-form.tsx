@@ -9,7 +9,7 @@ import { LoaderCircle, TriangleAlert, CircleCheck, MailCheck, RotateCw } from "l
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/layout/logo";
-import { requestPasswordReset, resendConfirmation, signIn, signUp, updatePassword } from "@/lib/actions/auth";
+import { requestPasswordReset, resendConfirmation, signIn, signInWithGoogle, signUp, updatePassword } from "@/lib/actions/auth";
 import { forgotSchema, loginSchema, registerSchema, resendSchema, resetSchema } from "@/lib/validation/auth";
 import type { ActionResult } from "@/lib/errors";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,57 @@ function Notice({ tone, children }: { tone: "warning" | "success"; children: Rea
   );
 }
 
+/** Google's mark. Inline so it renders before any network request completes. */
+function GoogleMark() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden>
+      <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z" />
+      <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z" />
+      <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34A21.99 21.99 0 0 0 2 24c0 3.55.85 6.91 2.34 9.88l7.35-5.7z" />
+      <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z" />
+    </svg>
+  );
+}
+
+/**
+ * Google sign-in. Shown only where it is configured, so nobody clicks a button that
+ * bounces off a Supabase error page.
+ */
+function GoogleButton({ label }: { label: string }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  if (process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED !== "true") return null;
+
+  const onClick = () => {
+    setError(null);
+    start(async () => {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const result = await signInWithGoogle({ timezone });
+      if (result.ok) {
+        window.location.assign(result.data.url);
+        return;
+      }
+      setError(result.error.message);
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-3.5">
+      <FormError message={error} />
+      <Button type="button" className="h-10" onClick={onClick} disabled={pending}>
+        {pending ? <LoaderCircle size={15} className="animate-spin" /> : <GoogleMark />}
+        {label}
+      </Button>
+      <div className="flex items-center gap-3" aria-hidden>
+        <span className="h-px flex-1 bg-border" />
+        <span className="text-[11.5px] uppercase tracking-[0.08em] text-dim">or</span>
+        <span className="h-px flex-1 bg-border" />
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <label className="block">
@@ -82,6 +133,8 @@ function useActionForm<T extends Record<string, unknown>>(schema: Parameters<typ
 const LINK_ERRORS: Record<string, string> = {
   link_expired: "That link has expired or was already used. Sign in, or ask for a new one.",
   link_invalid: "That link isn't valid. Ask for a new one.",
+  declined: "Google sign-in was canceled. Try again, or use your email and password.",
+  provider: "Google sign-in didn't work. Try again, or use your email and password.",
 };
 
 export function LoginForm() {
@@ -102,8 +155,9 @@ export function LoginForm() {
   return (
     <Shell title="Welcome back" subtitle="Sign in to your Kairo workspace."
       footer={<>New here? <Link href="/register" className="text-foreground underline underline-offset-[3px]">Create an account</Link></>}>
-      <form onSubmit={onSubmit} className="flex flex-col gap-3.5" noValidate>
-        {linkError && <Notice tone="warning">{linkError}</Notice>}
+      {linkError && <div className="mb-3.5"><Notice tone="warning">{linkError}</Notice></div>}
+      <GoogleButton label="Continue with Google" />
+      <form onSubmit={onSubmit} className="mt-3.5 flex flex-col gap-3.5" noValidate>
         <FormError message={formError} />
         <Field label="Email" error={form.formState.errors.email?.message}>
           <Input type="email" autoComplete="email" autoFocus {...form.register("email")} />
@@ -141,9 +195,10 @@ export function RegisterForm() {
   });
 
   return (
-    <Shell title="Create your workspace" subtitle="Free forever plan. No card required."
+    <Shell title="Create your workspace" subtitle="Start a 7-day free trial. $0.00 today, cancel anytime."
       footer={<>Already have an account? <Link href="/login" className="text-foreground underline underline-offset-[3px]">Sign in</Link></>}>
-      <form onSubmit={onSubmit} className="flex flex-col gap-3.5" noValidate>
+      <GoogleButton label="Sign up with Google" />
+      <form onSubmit={onSubmit} className="mt-3.5 flex flex-col gap-3.5" noValidate>
         <FormError message={formError} />
         <Field label="Full name" error={form.formState.errors.fullName?.message}>
           <Input autoComplete="name" autoFocus {...form.register("fullName")} />

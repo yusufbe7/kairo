@@ -13,7 +13,7 @@ import { canAssignRole } from "@/lib/permissions";
 import { randomToken, sha256 } from "@/lib/security/crypto";
 import { audit } from "@/lib/services/audit";
 import { notify } from "@/lib/services/notifications";
-import { getPlanLimits } from "@/lib/services/usage";
+import { describeLimit, getPlanLimits, limitReached } from "@/lib/services/usage";
 import { isValidTimezone } from "@/lib/time";
 import { inviteSchema, memberRoleSchema, notificationPrefsSchema, profileSchema, workspaceSchema } from "@/lib/validation/workspace";
 import type { WorkspaceRole } from "@/types/database";
@@ -80,7 +80,7 @@ export const inviteMember = safeAction("workspace.invite", inviteSchema, async (
     getPlanLimits(ctx.workspace.id),
     admin.from("workspace_members").select("user_id", { count: "exact", head: true }).eq("workspace_id", ctx.workspace.id),
   ]);
-  if ((count ?? 0) >= limits.members) throw new AppError("LIMIT_REACHED", `Your plan includes ${limits.members} team member${limits.members === 1 ? "" : "s"}. Upgrade to invite more.`);
+  if (limitReached(count ?? 0, limits.members)) throw new AppError("LIMIT_REACHED", `Your plan includes ${describeLimit(limits.members)} team member${limits.members === 1 ? "" : "s"}. Upgrade to invite more.`);
 
   const token = randomToken();
   const { error } = await admin.from("workspace_invitations").insert({

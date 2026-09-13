@@ -7,6 +7,7 @@ import { requireSuperAdmin } from "@/lib/admin/guard";
 import { allProviderStatuses, PROVIDERS } from "@/lib/integrations/registry";
 import { PLATFORMS } from "@/lib/platforms";
 import { isAiConfigured } from "@/lib/ai";
+import { billingEnvStatus, isBillingConfigured } from "@/lib/billing/stripe";
 
 export const metadata: Metadata = { title: "Integrations" };
 export const dynamic = "force-dynamic";
@@ -36,7 +37,9 @@ export default async function Page() {
     { name: "TOKEN_ENCRYPTION_KEY", present: Boolean(process.env.TOKEN_ENCRYPTION_KEY) },
     { name: "AI_API_KEY", present: isAiConfigured() },
     { name: "REDIS_URL", present: Boolean(process.env.REDIS_URL) },
+    { name: "NEXT_PUBLIC_GOOGLE_AUTH_ENABLED", present: process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true" },
   ];
+  const billing = billingEnvStatus();
 
   return (
     <>
@@ -48,6 +51,22 @@ export default async function Page() {
         <p className="mt-3.5 text-xs text-dim">
           Supabase keys are required. <code className="text-muted-foreground">TOKEN_ENCRYPTION_KEY</code> is required before any social account can be connected.
           Without <code className="text-muted-foreground">REDIS_URL</code> the worker polls the database instead of consuming a queue.
+        </p>
+      </div>
+
+      <div className="surface mb-4 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="h2">Billing</div>
+          <StatusBadge tone={isBillingConfigured() ? "connected" : "failed"}>
+            {isBillingConfigured() ? "Configured" : "Not configured"}
+          </StatusBadge>
+        </div>
+        <div className="mt-3 max-w-[420px]">{billing.map((e) => <EnvRow key={e.key} name={e.key} present={e.present} />)}</div>
+        <p className="mt-3.5 text-xs text-dim">
+          Kairo is paid-only: the dashboard stays locked until Stripe reports a trialing or active subscription.
+          A plan whose <code className="text-muted-foreground">STRIPE_PRICE_*</code> id is missing is simply not offered at checkout.
+          Access is granted by the webhook at <code className="text-muted-foreground">/api/webhooks/stripe</code> and nowhere else,
+          so <code className="text-muted-foreground">STRIPE_WEBHOOK_SECRET</code> is required for anyone to get in.
         </p>
       </div>
 

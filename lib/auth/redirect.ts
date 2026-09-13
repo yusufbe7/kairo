@@ -7,6 +7,12 @@
  * pointed at an arbitrary address.
  */
 export const PENDING_EMAIL_COOKIE = "kairo_pending_email";
+/**
+ * The browser timezone, stashed before an OAuth redirect. Google gives us no way to
+ * pass custom metadata through, and a scheduling product whose workspace silently
+ * defaults to UTC publishes every post at the wrong hour.
+ */
+export const OAUTH_TZ_COOKIE = "kairo_oauth_tz";
 export const PENDING_EMAIL_MAX_AGE = 60 * 30; // 30 minutes
 
 /**

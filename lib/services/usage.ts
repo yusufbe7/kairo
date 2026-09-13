@@ -18,6 +18,17 @@ const MESSAGE: Record<Metric, string> = {
 
 const periodStart = () => new Date(new Date().toISOString().slice(0, 8) + "01").toISOString().slice(0, 10);
 
+/**
+ * `null` is unlimited. Comparing a count against null directly would coerce it to 0
+ * and block everything, so every limit check goes through here.
+ */
+export const limitReached = (count: number, allowed: number | null | undefined): boolean =>
+  allowed != null && count >= allowed;
+
+/** "10" / "unlimited", for the message shown when a limit is hit. */
+export const describeLimit = (allowed: number | null | undefined): string =>
+  allowed == null ? "an unlimited number of" : String(allowed);
+
 export async function getPlanLimits(workspaceId: string): Promise<PlanLimits> {
   const { data } = await createAdminClient().from("workspaces").select("plans(limits)").eq("id", workspaceId).single();
   return ((data as { plans: { limits: PlanLimits } | null } | null)?.plans?.limits ?? { posts_per_month: 30, social_accounts: 3, members: 1, ai_generations: 20, api_requests: 0 }) as PlanLimits;
@@ -31,9 +42,7 @@ export async function getUsage(workspaceId: string): Promise<Record<string, numb
 /** Throws LIMIT_REACHED when the workspace has hit its monthly allowance. */
 export async function checkLimit(ctx: WorkspaceContext, metric: Metric) {
   const [limits, usage] = await Promise.all([getPlanLimits(ctx.workspace.id), getUsage(ctx.workspace.id)]);
-  const allowed = limits[LIMIT_KEY[metric]];
-  if (allowed == null) return; // unlimited on this plan
-  if ((usage[metric] ?? 0) >= allowed) throw new AppError("LIMIT_REACHED", MESSAGE[metric]);
+  if (limitReached(usage[metric] ?? 0, limits[LIMIT_KEY[metric]])) throw new AppError("LIMIT_REACHED", MESSAGE[metric]);
 }
 
 export async function incrementUsage(workspaceId: string, metric: Metric, amount = 1) {

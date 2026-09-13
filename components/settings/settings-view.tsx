@@ -34,7 +34,7 @@ export interface SettingsData {
   accounts: AccountView[];
   plan: { id: string; name: string; priceCents: number };
   usage: { posts: number; aiGenerations: number; accounts: number };
-  limits: { posts_per_month: number | null; social_accounts: number; members: number; ai_generations: number };
+  limits: { posts_per_month: number | null; social_accounts: number | null; members: number | null; ai_generations: number | null };
 }
 
 const NAV: [SectionId, string, LucideIcon][] = [
@@ -216,7 +216,7 @@ export function SettingsView({ data }: { data: SettingsData }) {
 
             {section === "billing" && (
               <Section title="Plan & usage" description={`You're on the ${data.plan.name} plan.`}
-                footer={can("billing.manage") ? <Button size="sm" onClick={() => toast("Billing isn't enabled on this deployment yet.")}>Manage billing</Button> : undefined}>
+                footer={can("billing.manage") ? <Button size="sm" asChild><Link href="/billing">Manage billing</Link></Button> : undefined}>
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-[30px] font-semibold tracking-[-0.02em]">${(data.plan.priceCents / 100).toFixed(0)}</span>
                   <span className="text-muted-foreground">/ month</span>

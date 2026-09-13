@@ -15,6 +15,7 @@ import { HeroProduct } from "./hero-product";
 import { LandingCalendar } from "./landing-calendar";
 import { LandingAI } from "./landing-ai";
 import { ALL_PLATFORMS, PLATFORMS } from "@/lib/platforms";
+import { PLAN_CARDS, TRIAL_DAYS } from "@/lib/billing/plans";
 import { DEMO_CONVERSATIONS, demoSeries } from "@/data/demo/content";
 import { cn } from "@/lib/utils";
 
@@ -30,11 +31,15 @@ const FEATURES: { title: string; text: string; icon: LucideIcon; span?: string }
   { title: "Unified Inbox", text: "Every comment and DM in one list, with suggested replies.", icon: Inbox, span: "md:col-span-3" },
 ];
 
-const PLANS = [
-  { name: "Free", price: 0, text: "For trying things out.", features: ["3 social accounts", "30 scheduled posts / month", "Content calendar", "Basic analytics"], cta: "Start for free" },
-  { name: "Starter", price: 12, text: "For creators posting every day.", features: ["8 social accounts", "Unlimited scheduling", "AI Studio · 200 generations", "Unified inbox"], cta: "Start 14-day trial" },
-  { name: "Pro", price: 29, text: "For teams and agencies.", features: ["15 social accounts", "Unlimited AI generations", "Team roles & approvals", "API & webhooks"], cta: "Start 14-day trial", featured: true },
-];
+/** Mirrors lib/billing/plans.ts — the amount charged is whatever the Stripe Price says. */
+const PLANS = PLAN_CARDS.map((plan) => ({
+  name: plan.name,
+  monthly: plan.monthlyCents / 100,
+  yearly: plan.yearlyMonthlyCents / 100,
+  text: plan.tagline,
+  features: plan.features.slice(0, 4),
+  featured: plan.featured,
+}));
 
 function SectionTitle({ title, text }: { title: React.ReactNode; text?: string }) {
   return (
@@ -66,8 +71,8 @@ export function LandingPage() {
             {[["Features", "#features"], ["Calendar", "#calendar"], ["AI", "#ai"], ["Pricing", "#pricing"]].map(([l, h]) => <a key={h} href={h} className="transition-colors hover:text-foreground">{l}</a>)}
           </nav>
           <div className="flex-1" />
-          <Button variant="ghost" size="sm" className="hidden md:inline-flex" asChild><Link href="/dashboard">Sign in</Link></Button>
-          <Button variant="primary" size="sm" asChild><Link href="/dashboard">Start for free</Link></Button>
+          <Button variant="ghost" size="sm" className="hidden md:inline-flex" asChild><Link href="/login">Sign in</Link></Button>
+          <Button variant="primary" size="sm" asChild><Link href="/register">Start free trial</Link></Button>
         </div>
       </header>
 
@@ -81,10 +86,10 @@ export function LandingPage() {
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12, duration: 0.7, ease: EASE }} className="max-w-[380px] pb-2">
             <p className="text-[17px] leading-relaxed text-muted-foreground">Plan, create, schedule and analyze your social content from one beautifully designed workspace.</p>
             <div className="mt-[22px] flex flex-wrap gap-2.5">
-              <Button variant="primary" size="lg" asChild><Link href="/dashboard">Start for free</Link></Button>
+              <Button variant="primary" size="lg" asChild><Link href="/register">Start free trial</Link></Button>
               <Button size="lg" asChild><Link href="/create"><Play size={13} />View demo</Link></Button>
             </div>
-            <div className="mt-3.5 text-[12.5px] text-dim">Free forever plan. No card required.</div>
+            <div className="mt-3.5 text-[12.5px] text-dim">{TRIAL_DAYS}-day free trial. $0.00 today, cancel anytime.</div>
           </motion.div>
         </div>
 
@@ -175,7 +180,7 @@ export function LandingPage() {
 
       <section id="pricing" className={cn(wrap, "mt-[130px] scroll-mt-24")}>
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <SectionTitle title="Simple pricing" text="Start free. Upgrade when your content calendar fills up." />
+          <SectionTitle title="Simple pricing" text={`Every plan starts with a ${TRIAL_DAYS}-day free trial. Cancel any time before it ends and you won\u2019t be charged.`} />
           <div className="mb-9">
             <Segmented aria-label="Billing period" value={yearly ? "y" : "m"} onChange={(v) => setYearly(v === "y")} options={[{ value: "m", label: "Monthly" }, { value: "y", label: "Yearly · save 20%" }]} />
           </div>
@@ -184,9 +189,10 @@ export function LandingPage() {
           {PLANS.map((plan) => (
             <div key={plan.name} className={cn("surface p-6", plan.featured && "border-white/[0.28] bg-gradient-to-b from-white/[0.055] to-white/[0.015]")}>
               <div className="flex items-center justify-between"><span className="text-[15px] font-semibold">{plan.name}</span>{plan.featured && <StatusBadge tone="neutral" dot={false} className="text-foreground">Most popular</StatusBadge>}</div>
-              <div className="mt-[18px] flex items-baseline gap-1.5"><span className="text-[40px] font-semibold tracking-[-0.03em]">${yearly ? Math.round(plan.price * 0.8) : plan.price}</span><span className="text-muted-foreground">/ month</span></div>
+              <div className="mt-[18px] flex items-baseline gap-1.5"><span className="text-[40px] font-semibold tracking-[-0.03em]">${yearly ? plan.yearly : plan.monthly}</span><span className="text-muted-foreground">/ month</span></div>
               <p className="mt-1 text-[13.5px] text-muted-foreground">{plan.text}</p>
-              <Button variant={plan.featured ? "primary" : "default"} className="mt-5 h-10 w-full" asChild><Link href="/dashboard">{plan.cta}</Link></Button>
+              <Button variant={plan.featured ? "primary" : "default"} className="mt-5 h-10 w-full" asChild><Link href="/register">Start {TRIAL_DAYS}-day trial</Link></Button>
+              <p className="mt-2 text-center text-[12px] text-dim">$0.00 today · cancel anytime</p>
               <div className="mt-[22px] flex flex-col gap-2.5">{plan.features.map((f) => <div key={f} className="flex items-center gap-2.5 text-[13.5px]"><Check size={14} className="text-muted-foreground" />{f}</div>)}</div>
             </div>
           ))}
@@ -197,7 +203,7 @@ export function LandingPage() {
         <div className="surface relative overflow-hidden px-6 py-[clamp(40px,7vw,80px)] text-center">
           <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(600px 240px at 50% 0%, rgba(147,171,255,.12), transparent 70%)" }} />
           <h2 className="relative text-[clamp(30px,4.6vw,54px)] font-semibold leading-[1.05] tracking-[-0.04em]">Your content deserves<br />a better workflow.</h2>
-          <Button variant="primary" size="lg" className="relative mt-7" asChild><Link href="/create">Start creating</Link></Button>
+          <Button variant="primary" size="lg" className="relative mt-7" asChild><Link href="/register">Start your free trial</Link></Button>
         </div>
       </section>
 

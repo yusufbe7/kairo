@@ -11,8 +11,10 @@ Next.js 15 (App Router) · TypeScript · Tailwind · Supabase (Postgres, Auth, S
 
 Everything below runs against the real database with server-side authorization and row-level security:
 
-- **Auth** — register, log in, log out, email confirmation (designed templates, cross-device links,
-  resend with cooldown), forgot/reset password, protected routes
+- **Auth** — register, log in, log out, Google sign-in, email confirmation (designed templates,
+  cross-device links, resend with cooldown), forgot/reset password, protected routes
+- **Billing** — Stripe Checkout with a 7-day card-required trial, hosted billing portal, and a
+  signature-verified webhook that is the only thing able to grant or revoke access
 - **Workspaces** — auto-created on signup, multiple per user, switcher, invitations by email, role changes, removal
 - **Roles** — owner / admin / editor / member / viewer, enforced in server actions *and* in RLS policies
 - **Posts** — create, edit, duplicate, delete, save draft, schedule, reschedule (single and bulk), retry
@@ -23,6 +25,7 @@ Everything below runs against the real database with server-side authorization a
 - **Analytics** — reads stored snapshots only; shows honest empty states instead of invented numbers
 - **Admin panel** — separate `/admin` area gated on `profiles.is_super_admin`: platform metrics, users, workspaces, job monitor, system logs, and an environment-variable checklist per provider
 - **Plans & usage** — monthly limits on posts, accounts, members and AI generations, enforced server-side
+- **Paywall** — the dashboard is unreachable unless Stripe reports a `trialing` or `active` subscription
 
 ### What is deliberately not finished
 
@@ -38,8 +41,7 @@ all built and tested — but no provider's API calls exist. So:
 Setting the environment variables alone will not change this — each provider also needs its module.
 See `lib/integrations/README.md` for the two functions and one class each provider requires.
 
-Also not built yet: Stripe billing (the subscription/usage schema is there, the payment flow is not),
-the public developer API (`api_keys` table and hashing exist, `/api/v1/*` routes do not), and
+Also not built yet: the public developer API (`api_keys` table and hashing exist, `/api/v1/*` routes do not), and
 provider webhook handlers (`webhook_events` table with idempotency exists, routes do not).
 
 ---
@@ -111,11 +113,60 @@ npm run emails     # regenerates the templates + _preview.html
 Open `supabase/templates/_preview.html` in a browser to see all six, then follow
 [`supabase/templates/README.md`](supabase/templates/README.md) to paste them into the dashboard.
 
+**Google sign-in** is optional: enable the Google provider under **Authentication → Providers**
+(its redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`, registered in the Google
+Cloud console), then set `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true` to show the button. Left unset,
+the button is hidden rather than broken.
+
 **Configure custom SMTP before launch.** Supabase's built-in email service is rate limited to a few
 messages an hour and is documented as development-only — without your own SMTP provider most
 signups never receive their confirmation link.
 
-## 6. OAuth provider configuration
+## 6. Stripe billing
+
+Kairo is paid-only: `app/(dashboard)/layout.tsx` sends any workspace without a `trialing` or
+`active` subscription to `/billing`, and only the Stripe webhook can change that.
+
+1. Create the products in Stripe (**Products → Add product**), one recurring Price per plan and
+   interval. The plan ids Kairo knows are `starter`, `pro` and `business` (shown as "Pro Plus").
+2. Copy each Price id (`price_…`) into the matching variable:
+
+   | Plan | Monthly | Yearly |
+   |---|---|---|
+   | Starter | `STRIPE_PRICE_STARTER_MONTHLY` | `STRIPE_PRICE_STARTER_YEARLY` |
+   | Pro | `STRIPE_PRICE_PRO_MONTHLY` | `STRIPE_PRICE_PRO_YEARLY` |
+   | Pro Plus | `STRIPE_PRICE_BUSINESS_MONTHLY` | `STRIPE_PRICE_BUSINESS_YEARLY` |
+
+   A plan whose Price id is missing simply isn't offered at checkout, so you can launch with one.
+   Optionally set `plan_id` in each Price's Stripe metadata — then re-pricing in Stripe never needs
+   a redeploy, because the webhook reads the plan from the Price itself.
+3. Add `STRIPE_SECRET_KEY` from **Developers → API keys**.
+4. Register the webhook at **Developers → Webhooks** pointing to
+   `https://your-domain.com/api/webhooks/stripe`, subscribed to `checkout.session.completed`,
+   `customer.subscription.created`, `customer.subscription.updated`,
+   `customer.subscription.deleted` and `invoice.payment_failed`. Copy its signing secret into
+   `STRIPE_WEBHOOK_SECRET`.
+
+   **Without the webhook secret nobody can ever get in**, no matter how many successful payments
+   Stripe records — returning from Checkout proves nothing, so access is granted only here.
+
+Locally, forward events instead of registering an endpoint:
+
+```bash
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+```
+
+Use a [test card](https://docs.stripe.com/testing) such as `4242 4242 4242 4242` while the keys are
+in test mode. `/admin/integrations` shows a ✓/✗ for every billing variable.
+
+### Trials
+
+Checkout is created with `trial_period_days: 7` and `payment_method_collection: "always"`: nothing
+is charged today, but a card is on file so the trial converts without asking anyone to come back.
+Stripe moves the subscription from `trialing` to `active` on its own, and the webhook writes that
+to `subscriptions`.
+
+## 7. Social provider configuration
 
 Add each provider's credentials to `.env.local` (see `.env.example`). The callback URL to register
 with every provider is:
@@ -128,7 +179,7 @@ https://your-domain.com/api/accounts/<platform>/callback
 deployment. Remember that credentials are necessary but not sufficient — the integration module
 must exist too.
 
-## 7. Redis
+## 8. Redis
 
 ```bash
 docker run -p 6379:6379 redis:7
@@ -139,7 +190,7 @@ Optional in development. Without it the rate limiter falls back to in-process me
 polls the database instead of consuming a queue. **Use Redis in production**, where serverless
 instances don't share memory.
 
-## 8. Worker startup
+## 9. Worker startup
 
 ```bash
 npm run worker
@@ -152,7 +203,7 @@ stops immediately on permanent failures like bad credentials, and notifies works
 result. It must run as a long-lived process — Railway, Fly.io, Render, or a container — not on Vercel's
 serverless runtime.
 
-## 9. Development
+## 10. Development
 
 ```bash
 npm run dev        # http://localhost:3000
@@ -160,13 +211,13 @@ npm run typecheck  # strict TypeScript, no `any`
 npm test           # vitest unit tests
 ```
 
-## 10. Production build
+## 11. Production build
 
 ```bash
 npm run build && npm start
 ```
 
-## 11. Deployment
+## 12. Deployment
 
 **Web app (Vercel):** import the repo, add every variable from `.env.example`, set
 `NEXT_PUBLIC_APP_URL` to your production URL, and add both `https://your-domain.com/auth/confirm` and
@@ -196,6 +247,8 @@ app/
   (dashboard)/     overview, create, calendar, posts, analytics, inbox, accounts, media, ai, settings, help
   admin/           separate control centre — never mixed into the user dashboard
   api/accounts/    OAuth connect + callback per platform
+  api/webhooks/    Stripe webhook — the only writer of subscription state
+  billing/         plan picker and portal entry, outside the paywall by design
   auth/confirm/    token-hash verification — the link in every Kairo auth email
   auth/callback/   Supabase PKCE code exchange (OAuth, legacy links)
 components/        layout, dashboard, editor, calendar, posts, analytics, inbox, accounts, media, ai, settings, admin, auth, social, ui
@@ -203,6 +256,7 @@ lib/
   actions/         server actions — the only mutation entry points
   services/        domain logic (posts, media, accounts, analytics, inbox, notifications, usage, ai, audit)
   integrations/    per-provider modules + capability registry
+  billing/         Stripe client, plan catalogue, subscription access rules
   publishing/      provider-agnostic publish abstraction
   queue/           durable job records + BullMQ driver
   supabase/        server / admin / browser / middleware clients
@@ -241,7 +295,8 @@ tests/             vitest unit tests
 - A partial unique index guarantees one live job per post, so rescheduling can't double-publish
 - OAuth state is hashed into an httpOnly cookie and verified on callback
 - Server actions validate with Zod and re-check permissions; frontend role checks are cosmetic only
-- Rate limits on login, registration, password reset, uploads, post writes and AI calls
+- Rate limits on login, registration, password reset, uploads, post writes, checkout and AI calls
+- Stripe webhooks are signature-verified against the raw body and deduplicated by event id
 - Audit log for logins, connections, post lifecycle, role changes and admin actions
 - Secrets never cross into client bundles; the logger redacts anything token-shaped
 
@@ -254,6 +309,9 @@ tests/             vitest unit tests
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | Server-only privileged access |
 | `TOKEN_ENCRYPTION_KEY` | for connections | 32-byte base64 key for provider tokens |
 | `AI_API_KEY`, `AI_MODEL` | for AI Studio | Hidden in the UI when unset |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | yes | Checkout, portal, and the only path to access |
+| `STRIPE_PRICE_*` | per plan | Stripe Price id; a plan without one isn't offered |
+| `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` | no | Shows the Google button once the provider is enabled |
 | `REDIS_URL` | production | Queue + distributed rate limiting |
 | `MEDIA_MAX_BYTES`, `LOG_PERSIST_LEVEL` | no | Upload ceiling, log persistence threshold |
 | `INSTAGRAM_*`, `FACEBOOK_*`, `TIKTOK_*`, `LINKEDIN_*`, `X_*`, `YOUTUBE_*`, `TELEGRAM_BOT_TOKEN` | per provider | Listed with ✓/✗ at `/admin/integrations` |
