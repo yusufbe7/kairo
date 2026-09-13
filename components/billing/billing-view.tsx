@@ -34,6 +34,8 @@ interface Props {
   purchasablePlans: readonly BillablePlanId[];
   yearlyAvailable: boolean;
   subscription: SubscriptionSummary;
+  /** False while an admin has the paywall switched off for testing. */
+  billingEnforced: boolean;
   checkoutResult: "success" | "canceled" | null;
 }
 
@@ -67,7 +69,7 @@ function statusLine(s: SubscriptionSummary): { tone: "success" | "warning" | "ne
 }
 
 export function BillingView({
-  workspaceName, userName, canManageBilling, configured, purchasablePlans, yearlyAvailable, subscription, checkoutResult,
+  workspaceName, userName, canManageBilling, configured, purchasablePlans, yearlyAvailable, subscription, billingEnforced, checkoutResult,
 }: Props) {
   const router = useRouter();
   const [interval, setInterval] = useState<BillingInterval>("month");
@@ -129,6 +131,13 @@ export function BillingView({
         <Banner tone={status.tone} icon={status.tone === "warning" ? <TriangleAlert size={16} /> : <ShieldCheck size={16} />}>{status.text}</Banner>
       )}
       {error && <Banner tone="warning" icon={<TriangleAlert size={16} />}>{error}</Banner>}
+
+      {!billingEnforced && (
+        <Banner tone="neutral" icon={<TriangleAlert size={16} />}>
+          The paywall is switched off on this deployment, so your workspace already has full access.
+          You can still start a subscription here, and it will take effect when the paywall goes back on.
+        </Banner>
+      )}
 
       {!configured && (
         <Banner tone="warning" icon={<TriangleAlert size={16} />}>

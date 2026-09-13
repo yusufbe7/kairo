@@ -23,7 +23,7 @@ Everything below runs against the real database with server-side authorization a
 - **Scheduling** — every scheduled post writes a durable `scheduled_jobs` row; a separate worker publishes it
 - **AI Studio** — real model calls server-side, per-platform adaptation, usage stored and rate-limited
 - **Analytics** — reads stored snapshots only; shows honest empty states instead of invented numbers
-- **Admin panel** — separate `/admin` area gated on `profiles.is_super_admin`: platform metrics, users, workspaces, job monitor, system logs, and an environment-variable checklist per provider
+- **Admin panel** — separate `/admin` area gated on `profiles.is_super_admin`: platform metrics, users, workspaces, job monitor, system logs, feature flags (including a paywall kill switch), and an environment-variable checklist per provider
 - **Plans & usage** — monthly limits on posts, accounts, members and AI generations, enforced server-side
 - **Paywall** — the dashboard is unreachable unless Stripe reports a `trialing` or `active` subscription
 
@@ -166,7 +166,22 @@ is charged today, but a card is on file so the trial converts without asking any
 Stripe moves the subscription from `trialing` to `active` on its own, and the webhook writes that
 to `subscriptions`.
 
+### Turning the paywall off while you test
+
+`/admin/flags` has an `ENFORCE_BILLING` switch. Off, every workspace goes straight into the
+dashboard without a subscription, so you can walk the whole product before Stripe is live. A
+warning banner then appears on every page, and the flag change is written to the audit log.
+
+It fails closed: if the flag can't be read, the paywall stays on. Turn it back on before you take
+real customers.
+
 ## 7. Social provider configuration
+
+**[`docs/social-credentials.md`](docs/social-credentials.md) walks through getting the keys** for
+each platform — which developer console, which products to add, which permissions to request, and
+what each reviewer will demand of you (a privacy policy, terms, a data-deletion page and a demo
+video, none of which Kairo has yet). Telegram needs none of that and is the fastest way to see the
+publishing path work end to end; X's API is paid.
 
 Add each provider's credentials to `.env.local` (see `.env.example`). The callback URL to register
 with every provider is:
@@ -263,6 +278,7 @@ lib/
   permissions, validation, security, logger, time, env
 workers/publish.ts scheduled publishing worker
 supabase/          migrations, RLS tests, auth email templates
+docs/              how to obtain each social platform's API credentials
 tests/             vitest unit tests
 ```
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, ArrowLeft, Building2, ChartColumn, FileText, Plug, ScrollText, Users } from "lucide-react";
+import { Activity, ArrowLeft, Building2, ChartColumn, FileText, Plug, ScrollText, ToggleRight, Users } from "lucide-react";
 import { Logo } from "@/components/layout/logo";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +13,7 @@ const NAV = [
   { href: "/admin/jobs", label: "Publishing jobs", icon: Activity },
   { href: "/admin/logs", label: "System logs", icon: ScrollText },
   { href: "/admin/integrations", label: "Integrations", icon: Plug },
+  { href: "/admin/flags", label: "Feature flags", icon: ToggleRight },
 ];
 
 export function AdminShell({ children, name }: { children: React.ReactNode; name: string }) {
