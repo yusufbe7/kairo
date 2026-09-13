@@ -115,6 +115,11 @@ export function buildMetaAuthorizeUrl(input: {
     redirect_uri: input.redirectUri,
     state: input.state,
     response_type: "code",
+    // Someone who authorised before is otherwise offered "continue with your previous
+    // settings", which silently re-grants the old set — so a connection made before a
+    // permission was added comes back missing it, with no sign anything was skipped.
+    // Asking again costs one extra screen; not asking costs an account that cannot post.
+    auth_type: "rerequest",
   });
 
   if (input.configId) {

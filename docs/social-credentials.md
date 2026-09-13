@@ -133,6 +133,17 @@ Keep **User access token** selected in the configuration's Access token step. Ka
 `/me/accounts` with a user token to collect Page tokens, so that is the shape it needs — the
 wizard's note that assets can't be selected is expected and harmless.
 
+## "Continue with your previous settings"
+
+Someone who authorised the app before is offered that shortcut by Facebook, and taking it
+re-grants **the old permission set** — so a connection made before a permission was added comes
+back without it, with nothing on screen saying anything was skipped.
+
+Kairo sends `auth_type=rerequest`, which makes Facebook ask again every time. If you are testing a
+configuration you just changed and still see the shortcut, press **Edit settings** rather than
+**Continue**, or remove the app entirely under Facebook → Settings → Apps and Websites and start
+over.
+
 ## One App ID, not two
 
 Meta shows **two different ids** and picking the wrong one is the most common way this breaks:

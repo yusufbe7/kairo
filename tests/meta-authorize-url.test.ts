@@ -33,6 +33,14 @@ describe("buildMetaAuthorizeUrl", () => {
   it("always carries the state that protects the callback", () => {
     expect(new URL(buildMetaAuthorizeUrl(base)).searchParams.get("state")).toBe("abc");
   });
+
+  it("re-asks rather than reusing a previous, possibly narrower grant", () => {
+    // Without this, someone who authorised before the permissions were added is offered
+    // "continue with your previous settings" and comes back unable to publish.
+    for (const configId of [undefined, "987654321"]) {
+      expect(new URL(buildMetaAuthorizeUrl({ ...base, configId })).searchParams.get("auth_type")).toBe("rerequest");
+    }
+  });
 });
 
 describe("granted permission check", () => {
