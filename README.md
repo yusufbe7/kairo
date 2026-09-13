@@ -11,8 +11,10 @@ Next.js 15 (App Router) · TypeScript · Tailwind · Supabase (Postgres, Auth, S
 
 Everything below runs against the real database with server-side authorization and row-level security:
 
-- **Auth** — register, log in, log out, Google sign-in, email confirmation (designed templates,
-  cross-device links, resend with cooldown), forgot/reset password, protected routes
+- **Auth** — Google sign-in only. Google has already verified the address, so there is no
+  confirmation email, no password and no reset flow; one click and the workspace exists
+- **Legal** — public `/privacy`, `/terms` and `/data-deletion` pages, which Google OAuth
+  verification and every social platform's app review require before they will approve you
 - **Billing** — Stripe Checkout with a 7-day card-required trial, hosted billing portal, and a
   signature-verified webhook that is the only thing able to grant or revoke access
 - **Workspaces** — auto-created on signup, multiple per user, switcher, invitations by email, role changes, removal
@@ -67,8 +69,8 @@ Requires Node 20+.
    openssl rand -base64 32   # → TOKEN_ENCRYPTION_KEY
    ```
 4. Under **Authentication → URL Configuration**, set the site URL to `http://localhost:3000` and add
-   both `http://localhost:3000/auth/confirm` and `http://localhost:3000/auth/callback` as redirect URLs.
-5. Paste Kairo's own email templates in — see section 5 below.
+   both `http://localhost:3000/auth/callback` and `http://localhost:3000/auth/confirm` as redirect URLs.
+5. Enable Google and disable email/password sign-in — see section 5 below.
 
 ## 3. Database migration
 
@@ -101,26 +103,31 @@ Register that email in the app first. This creates a **separate** workspace flag
 demo posts, accounts, conversations and 60 days of analytics — your real workspace is untouched,
 and demo accounts have no stored tokens, so they can never publish.
 
-## 5. Auth emails
+## 5. Sign-in
 
-`supabase/templates/` holds the confirmation, password reset, invite, magic link, email change and
-reauthentication emails, generated from one shared layout:
-
-```bash
-npm run emails     # regenerates the templates + _preview.html
-```
-
-Open `supabase/templates/_preview.html` in a browser to see all six, then follow
-[`supabase/templates/README.md`](supabase/templates/README.md) to paste them into the dashboard.
-
-**Google sign-in** is optional: enable the Google provider under **Authentication → Providers**
+Google is the only way into Kairo. Enable the Google provider under **Authentication → Providers**
 (its redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`, registered in the Google
-Cloud console), then set `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true` to show the button. Left unset,
-the button is hidden rather than broken.
+Cloud console), then set `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true` to show the button. Left unset, the
+button is hidden rather than broken.
 
-**Configure custom SMTP before launch.** Supabase's built-in email service is rate limited to a few
-messages an hour and is documented as development-only — without your own SMTP provider most
-signups never receive their confirmation link.
+**Also turn the Email provider off** under the same settings. Removing the password forms from the
+interface does not close the API: leave the provider enabled and accounts can still be created with
+a password that nothing in the product expects.
+
+Google's consent screen needs an authorized domain, a privacy policy URL and a terms URL. Those pages
+are live at `/privacy`, `/terms` and `/data-deletion` — the last is what Meta asks for.
+
+### Auth emails
+
+`supabase/templates/` holds Supabase's confirmation, password reset, invite, magic link, email change
+and reauthentication emails, generated from one shared layout by `npm run emails` (open
+`_preview.html` to see them). **They are inactive while Google is the only sign-in method** — Supabase
+sends no auth emails then — and are kept, along with `/auth/confirm`, so turning the Email provider
+back on is a configuration change rather than a code change. See
+[`supabase/templates/README.md`](supabase/templates/README.md).
+
+If you do re-enable email, configure custom SMTP first: Supabase's built-in service is rate limited to
+a few messages an hour and is documented as development-only.
 
 ## 6. Stripe billing
 
@@ -258,14 +265,15 @@ revoked from the `authenticated` role.
 
 ```
 app/
-  (auth)/          login, register, verify-email, forgot-password, reset-password
+  (auth)/          login, register — one Google button each
+  (legal)/         privacy, terms, data-deletion
   (dashboard)/     overview, create, calendar, posts, analytics, inbox, accounts, media, ai, settings, help
   admin/           separate control centre — never mixed into the user dashboard
   api/accounts/    OAuth connect + callback per platform
   api/webhooks/    Stripe webhook — the only writer of subscription state
   billing/         plan picker and portal entry, outside the paywall by design
-  auth/confirm/    token-hash verification — the link in every Kairo auth email
-  auth/callback/   Supabase PKCE code exchange (OAuth, legacy links)
+  auth/callback/   PKCE code exchange — where Google sign-in lands
+  auth/confirm/    token-hash verification, inactive while sign-in is Google-only
 components/        layout, dashboard, editor, calendar, posts, analytics, inbox, accounts, media, ai, settings, admin, auth, social, ui
 lib/
   actions/         server actions — the only mutation entry points
@@ -327,7 +335,7 @@ tests/             vitest unit tests
 | `AI_API_KEY`, `AI_MODEL` | for AI Studio | Hidden in the UI when unset |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | yes | Checkout, portal, and the only path to access |
 | `STRIPE_PRICE_*` | per plan | Stripe Price id; a plan without one isn't offered |
-| `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` | no | Shows the Google button once the provider is enabled |
+| `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` | yes | Shows the Google button — the only way in — once the provider is enabled |
 | `REDIS_URL` | production | Queue + distributed rate limiting |
 | `MEDIA_MAX_BYTES`, `LOG_PERSIST_LEVEL` | no | Upload ceiling, log persistence threshold |
 | `INSTAGRAM_*`, `FACEBOOK_*`, `TIKTOK_*`, `LINKEDIN_*`, `X_*`, `YOUTUBE_*`, `TELEGRAM_BOT_TOKEN` | per provider | Listed with ✓/✗ at `/admin/integrations` |

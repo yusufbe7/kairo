@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { postInputSchema, listPostsSchema } from "@/lib/validation/posts";
-import { registerSchema } from "@/lib/validation/auth";
+import { googleSchema } from "@/lib/validation/auth";
 import { mediaKindFor, uploadRequestSchema } from "@/lib/validation/media";
 
 const base = { caption: "Hello world", targets: [{ platform: "instagram" as const }], mediaIds: [], format: "post" as const };
@@ -36,15 +36,15 @@ describe("post validation", () => {
 });
 
 describe("auth validation", () => {
-  it("rejects short passwords and bad emails", () => {
-    expect(registerSchema.safeParse({ fullName: "A", email: "nope", password: "secret12" }).success).toBe(false);
-    expect(registerSchema.safeParse({ fullName: "A", email: "a@b.com", password: "short" }).success).toBe(false);
-    expect(registerSchema.safeParse({ fullName: "A", email: "a@b.com", password: "secret12" }).success).toBe(true);
+  // Google is the only sign-in method, so the only thing the client sends is the
+  // browser timezone — and it stays optional, because sign-in must not depend on it.
+  it("accepts a signin with or without a timezone", () => {
+    expect(googleSchema.safeParse({}).success).toBe(true);
+    expect(googleSchema.safeParse({ timezone: "Asia/Tashkent" }).success).toBe(true);
   });
 
-  it("normalizes email casing", () => {
-    const parsed = registerSchema.parse({ fullName: "A", email: "  UPPER@Example.COM ", password: "secret12" });
-    expect(parsed.email).toBe("upper@example.com");
+  it("rejects an absurdly long timezone", () => {
+    expect(googleSchema.safeParse({ timezone: "x".repeat(65) }).success).toBe(false);
   });
 });
 

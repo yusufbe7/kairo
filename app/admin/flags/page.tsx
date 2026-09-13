@@ -17,10 +17,14 @@ export default async function Page() {
     return a.key.localeCompare(b.key);
   });
 
+  // The paywall switch lives in a migration. Until that has run there is no row to
+  // toggle, and silently showing nothing is exactly the confusing case to avoid.
+  const billingFlagMissing = !flags.some((f) => f.key === BILLING_FLAG);
+
   return (
     <>
       <PageHeader title="Feature flags" description="Switches that change how this deployment behaves for everyone, immediately." />
-      <FlagList flags={flags} billingKey={BILLING_FLAG} />
+      <FlagList flags={flags} billingKey={BILLING_FLAG} billingFlagMissing={billingFlagMissing} />
     </>
   );
 }

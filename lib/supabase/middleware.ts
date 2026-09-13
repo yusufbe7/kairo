@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 const PROTECTED = ["/dashboard", "/create", "/calendar", "/posts", "/analytics", "/inbox", "/accounts", "/media", "/ai", "/settings", "/help", "/admin", "/invite", "/billing"];
-const GUEST_ONLY = ["/login", "/register", "/forgot-password"];
+const GUEST_ONLY = ["/login", "/register"];
 
 /** Refreshes the Supabase session cookie and enforces route-level auth. */
 export async function updateSession(request: NextRequest) {

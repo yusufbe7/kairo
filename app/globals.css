@@ -47,6 +47,21 @@
   }
   .nav-item[data-active="true"] svg { @apply text-brand; }
 
+
+  /* Long-form legal copy: readable prose without pulling in a typography plugin. */
+  .legal { @apply text-[15px] leading-[1.75] text-muted-foreground; }
+  .legal h2 { @apply mt-11 text-[19px] font-semibold tracking-[-0.02em] text-foreground; }
+  .legal h2:first-child { @apply mt-0; }
+  .legal h3 { @apply mt-7 text-[15.5px] font-semibold text-foreground; }
+  .legal p { @apply mt-3.5; }
+  .legal ul { @apply mt-3.5 flex flex-col gap-2 pl-5; }
+  .legal li { @apply list-disc marker:text-dim; }
+  .legal a { @apply text-foreground underline underline-offset-[3px]; }
+  .legal strong { @apply font-semibold text-foreground; }
+  .legal table { @apply mt-4 w-full border-collapse text-[13.5px]; }
+  .legal th { @apply border-b border-border-strong py-2 pr-4 text-left font-medium text-foreground; }
+  .legal td { @apply border-b border-border py-2.5 pr-4 align-top; }
+
   .skeleton {
     background: linear-gradient(90deg, rgba(255,255,255,.03), rgba(255,255,255,.075), rgba(255,255,255,.03));
     background-size: 200% 100%;
