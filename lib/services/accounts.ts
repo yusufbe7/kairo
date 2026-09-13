@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { AppError, fromDbError } from "@/lib/errors";
 import { providerStatus } from "@/lib/integrations/registry";
 import { audit } from "@/lib/services/audit";
-import { getPlanLimits } from "@/lib/services/usage";
+import { describeLimit, getPlanLimits, limitReached } from "@/lib/services/usage";
 import type { WorkspaceContext } from "@/lib/workspace/context";
 import type { SocialAccountRow } from "@/types/database";
 import type { AccountView, PlatformId } from "@/types/social";
@@ -32,8 +32,8 @@ export async function assertCanConnect(ctx: WorkspaceContext, platform: Platform
     getPlanLimits(ctx.workspace.id),
     ctx.supabase.from("social_accounts").select("id", { count: "exact", head: true }).eq("workspace_id", ctx.workspace.id).neq("status", "disconnected"),
   ]);
-  if ((count ?? 0) >= limits.social_accounts) {
-    throw new AppError("LIMIT_REACHED", `Your plan includes ${limits.social_accounts} social accounts. Upgrade to connect more.`);
+  if (limitReached(count ?? 0, limits.social_accounts)) {
+    throw new AppError("LIMIT_REACHED", `Your plan includes ${describeLimit(limits.social_accounts)} social accounts. Upgrade to connect more.`);
   }
 }
 

@@ -64,7 +64,8 @@ export interface AnalyticsPostRow {
   comments: number | null; shares: number | null; clicks: number | null; engagement_rate: number | null; source: MetricSource; fetched_at: string;
 }
 export interface NotificationRow { id: string; type: string; title: string; body: string | null; link: string | null; read_at: string | null; created_at: string }
-export interface PlanLimits { posts_per_month: number | null; social_accounts: number; members: number; ai_generations: number; api_requests: number }
+/** `null` means unlimited on every limit — always compare with `limitReached`. */
+export interface PlanLimits { posts_per_month: number | null; social_accounts: number | null; members: number | null; ai_generations: number | null; api_requests: number | null }
 export interface PlanRow { id: string; name: string; price_cents: number; limits: PlanLimits }
 export interface SubscriptionRow { workspace_id: string; plan_id: string; status: string; current_period_end: string | null }
 export interface ApiKeyRow { id: string; workspace_id: string; name: string; prefix: string; last_used_at: string | null; revoked_at: string | null; created_at: string }

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
-const PROTECTED = ["/dashboard", "/create", "/calendar", "/posts", "/analytics", "/inbox", "/accounts", "/media", "/ai", "/settings", "/help", "/admin", "/invite"];
+const PROTECTED = ["/dashboard", "/create", "/calendar", "/posts", "/analytics", "/inbox", "/accounts", "/media", "/ai", "/settings", "/help", "/admin", "/invite", "/billing"];
 const GUEST_ONLY = ["/login", "/register", "/forgot-password"];
 
 /** Refreshes the Supabase session cookie and enforces route-level auth. */
