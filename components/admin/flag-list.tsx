@@ -14,7 +14,7 @@ export interface Flag {
   updated_at: string;
 }
 
-export function FlagList({ flags, billingKey }: { flags: Flag[]; billingKey: string }) {
+export function FlagList({ flags, billingKey, billingFlagMissing }: { flags: Flag[]; billingKey: string; billingFlagMissing?: boolean }) {
   const router = useRouter();
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +35,25 @@ export function FlagList({ flags, billingKey }: { flags: Flag[]; billingKey: str
 
   return (
     <div className="flex flex-col gap-3">
+      {billingFlagMissing && (
+        <div role="status" className="rounded-xl border border-warning/25 bg-warning/[0.06] px-4 py-3.5 text-[13px] leading-relaxed text-warning">
+          <div className="flex items-start gap-2.5">
+            <TriangleAlert size={16} className="mt-px shrink-0" />
+            <span>
+              The <span className="font-mono">{billingKey}</span> switch isn&apos;t in the database yet, so the paywall
+              can&apos;t be turned off from here. Run the pending migrations
+              (<span className="font-mono">supabase db push</span>), or paste this into the Supabase SQL editor:
+            </span>
+          </div>
+          <pre className="mt-3 overflow-x-auto rounded-[10px] border border-border bg-[#0A0B0F] p-3 font-mono text-[11.5px] leading-relaxed text-muted-foreground">
+{`insert into public.feature_flags (key, enabled, description) values
+  ('${billingKey}', true, 'Require an active Stripe subscription to use the dashboard. Turn off only while testing.')
+on conflict (key) do nothing;`}
+          </pre>
+          <p className="mt-2.5 text-[12.5px] text-dim">Reload this page afterwards and the switch appears at the top.</p>
+        </div>
+      )}
+
       {billingOff && (
         <div role="status" className="flex items-start gap-2.5 rounded-xl border border-warning/25 bg-warning/[0.06] px-4 py-3 text-[13px] leading-relaxed text-warning">
           <TriangleAlert size={16} className="mt-px shrink-0" />
