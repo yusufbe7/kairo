@@ -79,23 +79,6 @@ export async function upsertConnectedAccount(params: {
   return accountId;
 }
 
-/**
- * What a publisher needs to act on an account: the provider's own id for it (a Page id,
- * an Instagram user id) and a decrypted token. Server-only — never expose either.
- */
-export async function getPublishingCredentials(accountId: string): Promise<{ externalAccountId: string; accessToken: string }> {
-  const { data, error } = await createAdminClient()
-    .from("social_accounts")
-    .select("external_account_id")
-    .eq("id", accountId)
-    .single();
-  if (error || !data) throw new AppError("NOT_FOUND", "That account is no longer connected.");
-  return {
-    externalAccountId: (data as { external_account_id: string }).external_account_id,
-    accessToken: await getAccessToken(accountId),
-  };
-}
-
 /** Server-only: decrypts a provider token for publishing/analytics. Never expose the result to the client. */
 export async function getAccessToken(accountId: string): Promise<string> {
   const { decryptSecret } = await import("@/lib/security/crypto");
