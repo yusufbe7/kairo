@@ -39,6 +39,9 @@ export const signInWithGoogle = safeAction("auth.google", googleSchema, async (i
     logger.error("auth.google_unavailable", error?.message ?? "No authorize URL returned");
     throw new AppError("NOT_CONFIGURED", "Sign-in is temporarily unavailable. Please try again in a moment.");
   }
+  if (!(await authorizeUrlWorks(data.url))) {
+    throw new AppError("NOT_CONFIGURED", "Google sign-in isn't switched on for this deployment yet. An administrator needs to enable the Google provider in Supabase.");
+  }
 
   // Google carries no timezone, and a scheduling product that defaults to UTC
   // publishes every post at the wrong hour. Applied in the callback.
@@ -49,6 +52,25 @@ export const signInWithGoogle = safeAction("auth.google", googleSchema, async (i
   }
   return { url: data.url };
 });
+
+/**
+ * Supabase builds the authorize URL in the SDK without contacting its server, so a
+ * provider that has not been enabled is only discovered once the browser has already
+ * landed on a raw JSON error page. One probe turns that dead end into a message.
+ *
+ * Fails open: a probe that cannot run must never block a sign-in that would have worked.
+ */
+async function authorizeUrlWorks(url: string): Promise<boolean> {
+  try {
+    // A configured provider answers with a redirect to Google; a disabled one returns 400.
+    const response = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(4000) });
+    if (response.status < 400) return true;
+    logger.error("auth.google_provider_disabled", `Supabase returned ${response.status} for the Google authorize URL`);
+    return false;
+  } catch {
+    return true;
+  }
+}
 
 export async function signOut(): Promise<ActionResult<null>> {
   const supabase = await createClient();
