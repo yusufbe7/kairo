@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildMetaAuthorizeUrl } from "@/lib/integrations/meta/graph";
 
 const base = {
@@ -32,5 +32,36 @@ describe("buildMetaAuthorizeUrl", () => {
 
   it("always carries the state that protects the callback", () => {
     expect(new URL(buildMetaAuthorizeUrl(base)).searchParams.get("state")).toBe("abc");
+  });
+});
+
+describe("granted permission check", () => {
+  it("names what is missing rather than letting it surface as an empty account list", async () => {
+    const { assertPermissions } = await import("@/lib/integrations/meta/graph");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: [{ permission: "pages_show_list", status: "granted" }] }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(assertPermissions("token", ["pages_show_list", "pages_manage_posts"], "Facebook"))
+      .rejects.toThrow(/pages_manage_posts/);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("passes when everything essential was granted, ignoring extras", async () => {
+    const { assertPermissions } = await import("@/lib/integrations/meta/graph");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        data: [
+          { permission: "pages_show_list", status: "granted" },
+          { permission: "pages_manage_posts", status: "granted" },
+          { permission: "email", status: "declined" },
+        ],
+      }), { status: 200 }),
+    ));
+
+    await expect(assertPermissions("token", ["pages_show_list", "pages_manage_posts"], "Facebook")).resolves.toBeUndefined();
+    vi.unstubAllGlobals();
   });
 });

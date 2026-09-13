@@ -1,5 +1,5 @@
 import "server-only";
-import { buildMetaAuthorizeUrl, exchangeForLongLivedToken, graphGet, listPages, loginConfigId, MetaError, requireEnv } from "@/lib/integrations/meta/graph";
+import { assertPermissions, buildMetaAuthorizeUrl, exchangeForLongLivedToken, graphGet, listPages, loginConfigId, MetaError, requireEnv } from "@/lib/integrations/meta/graph";
 import type { ConnectableAccount, ExchangeResult } from "@/lib/integrations/types";
 
 /**
@@ -25,6 +25,13 @@ const SCOPES = [
   "pages_read_engagement",
   "business_management",
 ];
+
+/**
+ * The subset without which nothing works. `pages_read_engagement` only adds the
+ * follower count, and `business_management` is Meta's use-case requirement rather than
+ * ours — neither should turn away a connection that can publish.
+ */
+const ESSENTIAL = ["pages_show_list", "instagram_basic", "instagram_content_publish"];
 const PAGE_FIELDS = "id,name,access_token,instagram_business_account{id,username,name,profile_picture_url,followers_count}";
 
 export async function buildAuthorizeUrl(input: { state: string; redirectUri: string }): Promise<string> {
@@ -65,6 +72,9 @@ export async function exchangeCode(input: { code: string; redirectUri: string })
   const { accessToken: userToken } = await exchangeForLongLivedToken({
     clientId, clientSecret, code: input.code, redirectUri: input.redirectUri,
   });
+
+  // Fail on the real cause before the empty account list sends everyone hunting for Pages.
+  await assertPermissions(userToken, ESSENTIAL, "Instagram");
 
   const [me, candidates] = await Promise.all([
     graphGet<{ id?: string }>("/me", { access_token: userToken, fields: "id" }).catch(() => ({ id: undefined })),
