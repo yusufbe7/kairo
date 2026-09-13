@@ -29,7 +29,7 @@ export function HeroProduct() {
     <div className="overflow-hidden rounded-[18px] border border-border-strong bg-[#08090C] shadow-[0_50px_120px_-40px_rgba(0,0,0,1),0_0_0_1px_rgba(255,255,255,0.03),0_-1px_60px_-30px_rgba(147,171,255,0.35)]">
       <div className="flex h-10 items-center gap-2 border-b border-border bg-white/[0.02] px-3.5">
         {[0, 1, 2].map((i) => <span key={i} className="h-2.5 w-2.5 rounded-full bg-white/[0.12]" />)}
-        <div className="mx-auto rounded-[7px] border border-border bg-white/[0.04] px-10 py-0.5 text-[11.5px] text-dim">app.kairo.studio</div>
+        <div className="mx-auto rounded-[7px] border border-border bg-white/[0.04] px-10 py-0.5 text-[11.5px] text-dim">kairohub.pro</div>
       </div>
       <ScaledFrame width={1320} height={800}>
         <div className="flex h-[800px]">

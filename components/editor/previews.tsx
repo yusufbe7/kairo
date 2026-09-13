@@ -44,7 +44,7 @@ export function TikTokPreview({ text, media, handle }: PreviewProps) {
       <div className="absolute bottom-3.5 left-3 right-[60px] text-[12.5px]">
         <div className="font-semibold">{handle}</div>
         <div className="mt-1 line-clamp-3 leading-snug">{text || "Your caption will appear here"}</div>
-        <div className="mt-2 flex items-center gap-1.5 text-[11.5px]"><Music2 size={12} />Original sound · kairo.studio</div>
+        <div className="mt-2 flex items-center gap-1.5 text-[11.5px]"><Music2 size={12} />Original sound · kairohub</div>
       </div>
     </div>
   );

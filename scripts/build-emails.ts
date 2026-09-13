@@ -24,6 +24,8 @@ const C = {
   muted: "#9096A0",
   dim: "#5E636C",
   brand: "#93ABFF",
+  // The logo gradient needs one flat colour for Outlook, which ignores background-image.
+  brandSolid: "#2E6CF0",
   brandTint: "#151A2B",
   white: "#FFFFFF",
   ink: "#08090B",
@@ -110,7 +112,7 @@ function render(t: Template) {
           <td style="padding:0 4px 22px;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td width="38" height="38" align="center" valign="middle" bgcolor="#14161C" style="width:38px;height:38px;border-radius:11px;font-family:${FONT};font-size:18px;font-weight:700;color:${C.text};letter-spacing:-0.02em;">K</td>
+                <td width="38" height="38" align="center" valign="middle" bgcolor="${C.brandSolid}" style="width:38px;height:38px;border-radius:11px;background-color:${C.brandSolid};background-image:linear-gradient(135deg, #28C8F7 0%, ${C.brandSolid} 48%, #8B5CF6 100%);font-family:${FONT};font-size:18px;font-weight:700;color:#FFFFFF;letter-spacing:-0.02em;">K</td>
                 <td style="padding-left:11px;font-family:${FONT};font-size:17px;font-weight:600;color:${C.text};letter-spacing:-0.02em;">Kairo</td>
               </tr>
             </table>
