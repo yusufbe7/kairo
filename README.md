@@ -249,9 +249,19 @@ npm run build && npm start
 `https://kairohub.pro/auth/callback` to the Supabase redirect allowlist. Set the Supabase **Site URL**
 to the same production origin — the email templates build every link from it.
 
-**Worker (separate service):** deploy the same repo with the start command `npm run worker`. It
-needs `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `TOKEN_ENCRYPTION_KEY` and
-`REDIS_URL`.
+**Worker (separate service):** deploy the same repo with the start command `npm run worker`.
+
+It needs the same environment as the web app, minus Stripe and the app URL:
+
+| Variable | Why the worker needs it |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Claiming jobs and writing results |
+| `TOKEN_ENCRYPTION_KEY` | Decrypting provider tokens — **must be byte-identical to the web app's**, or every publish fails |
+| `FACEBOOK_*`, `INSTAGRAM_*`, and any other provider's credentials | `publishToPlatform` refuses a provider whose `requiredEnv` is missing, so a worker without them fails every post with `NOT_CONFIGURED` |
+| `REDIS_URL` | Optional. Without it the worker polls `scheduled_jobs` every 15 seconds instead of consuming a queue |
+
+Nothing publishes while no worker is running: posts sit at `publishing` and scheduled jobs stay
+`queued`. Vercel cannot host it — its runtime has no long-lived process.
 
 **First super admin:** run once in the SQL editor —
 
