@@ -6,6 +6,7 @@ import { PROVIDERS } from "@/lib/integrations/registry";
 import { encryptSecret, sha256 } from "@/lib/security/crypto";
 import { CONNECT_COOKIE, CONNECT_COOKIE_MAX_AGE } from "@/lib/integrations/connect-session";
 import { MetaError } from "@/lib/integrations/meta/graph";
+import { messageFrom } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { OAUTH_STATE_COOKIE } from "../connect/route";
 import type { ExchangeResult } from "@/lib/integrations/types";
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       logger.error("oauth.callback_failed", error.message, { platform: id, workspaceId: stored.workspaceId, code: error.code });
       return fail(error.code.toLowerCase());
     }
-    logger.error("oauth.callback_failed", error instanceof Error ? error.message : "Unknown error", { platform: id, workspaceId: stored.workspaceId });
+    logger.error("oauth.callback_failed", messageFrom(error), { platform: id, workspaceId: stored.workspaceId });
     return fail("exchange_failed");
   }
 }

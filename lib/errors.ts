@@ -34,3 +34,23 @@ export function fromDbError(error: { code?: string; message: string } | null, fa
   if (error.code === "PGRST116") return new AppError("NOT_FOUND", "We couldn't find that item.", { cause: error });
   return new AppError("INTERNAL", fallback, { cause: error });
 }
+
+/**
+ * A readable message from anything thrown.
+ *
+ * `error instanceof Error` misses the shapes that matter most here: Supabase and
+ * PostgREST reject with plain objects carrying `message` and `code`, so treating them
+ * as unknown throws away the only sentence that explains the failure — which is how a
+ * real Postgres error ends up logged as "Unknown error".
+ */
+export function messageFrom(error: unknown, fallback = "Unknown error"): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  if (error && typeof error === "object") {
+    const { message, code } = error as { message?: unknown; code?: unknown };
+    if (typeof message === "string" && message.trim()) {
+      return typeof code === "string" && code ? `${message} (${code})` : message;
+    }
+  }
+  return fallback;
+}

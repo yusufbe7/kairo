@@ -4,7 +4,7 @@ import { requireWorkspace } from "@/lib/workspace/context";
 import { assertCanConnect } from "@/lib/services/accounts";
 import { PROVIDERS } from "@/lib/integrations/registry";
 import { randomToken, sha256 } from "@/lib/security/crypto";
-import { AppError } from "@/lib/errors";
+import { AppError, messageFrom } from "@/lib/errors";
 import { MetaError } from "@/lib/integrations/meta/graph";
 import { CONNECT_FLOW_MAX_AGE } from "@/lib/integrations/connect-session";
 import { logger } from "@/lib/logger";
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       logger.error("oauth.connect_blocked", error.message, { platform: id, code: error.code });
       return NextResponse.redirect(`${origin}/accounts?error=${encodeURIComponent(error.code.toLowerCase())}`);
     }
-    logger.error("oauth.connect_failed", error instanceof Error ? error.message : "Unknown error", { platform: id });
+    logger.error("oauth.connect_failed", messageFrom(error), { platform: id });
     return NextResponse.redirect(`${origin}/accounts?error=connect_failed`);
   }
 }
