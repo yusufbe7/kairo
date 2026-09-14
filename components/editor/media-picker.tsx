@@ -26,7 +26,9 @@ function uploadFailureMessage(reason: string): string {
     return "The media storage bucket is missing on this deployment. An administrator needs to run the storage migration.";
   }
   if (text.includes("row-level security") || text.includes("policy")) {
-    return "Storage refused this upload. Your account may not have access to this workspace's media.";
+    // Reaching this with a valid session means the workspace membership, not the sign-in,
+    // is what the policy rejected — so say which one to check.
+    return "Storage refused this upload: your account is signed in but isn't an accepted member of this workspace. An administrator can check Settings \u2192 Members.";
   }
   if (text.includes("payload too large") || text.includes("exceeded the maximum")) {
     return "That file is larger than this deployment allows.";
@@ -45,6 +47,16 @@ async function uploadOne(file: File): Promise<MediaView | null> {
   if (!plan) return null;
 
   const supabase = createClient();
+
+  // The upload goes to Storage as the signed-in user, not through the server, so it needs a
+  // session in *this tab*. Without one Storage answers with a policy violation, which reads
+  // like "you have no access to this workspace" — a confusing way to say "reload the page".
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    toast.error("Your session isn't available in this tab, so Storage rejected the upload. Reload the page and try again.");
+    return null;
+  }
+
   const { error } = await supabase.storage.from(plan.bucket).upload(plan.path, file, { contentType: file.type, upsert: false });
   if (error) {
     // Storage says exactly what went wrong — a missing bucket, a rejected file type, a
