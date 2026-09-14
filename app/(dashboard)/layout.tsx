@@ -6,6 +6,7 @@ import { getWorkspacePage } from "@/lib/workspace/context";
 import { listNotifications } from "@/lib/services/notifications";
 import { getSubscription } from "@/lib/billing/subscription";
 import { isBillingEnforced } from "@/lib/billing/enforcement";
+import { sweepPublishing } from "@/lib/publishing/kick";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser();
@@ -24,6 +25,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const profile = await getProfile();
   const notifications = await listNotifications(ctx, 8);
+
+  // Runs after this page is sent, and only if the scheduler has fallen behind.
+  sweepPublishing();
 
   const toSummary = (w: { id: string; name: string; timezone: string; plan_id: string }, role: WorkspaceSummary["role"]): WorkspaceSummary =>
     ({ id: w.id, name: w.name, timezone: w.timezone, planId: w.plan_id, role });

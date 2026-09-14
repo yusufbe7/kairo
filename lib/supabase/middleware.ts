@@ -7,6 +7,11 @@ const GUEST_ONLY = ["/login", "/register"];
 /** Refreshes the Supabase session cookie and enforces route-level auth. */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
+
+  // Scheduler traffic carries no session cookie and authenticates itself with CRON_SECRET,
+  // so refreshing a session here would only cost a round trip on every beat.
+  if (request.nextUrl.pathname.startsWith("/api/cron/")) return response;
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return response; // The setup screen explains the unconfigured case.

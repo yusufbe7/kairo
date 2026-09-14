@@ -38,6 +38,7 @@ export default async function Page() {
     { name: "NEXT_PUBLIC_SUPABASE_ANON_KEY", present: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) },
     { name: "SUPABASE_SERVICE_ROLE_KEY", present: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY) },
     { name: "TOKEN_ENCRYPTION_KEY", present: Boolean(process.env.TOKEN_ENCRYPTION_KEY) },
+    { name: "CRON_SECRET", present: Boolean(process.env.CRON_SECRET) },
     { name: "AI_API_KEY", present: isAiConfigured() },
     { name: "REDIS_URL", present: Boolean(process.env.REDIS_URL) },
     { name: "NEXT_PUBLIC_GOOGLE_AUTH_ENABLED", present: process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true" },
@@ -53,7 +54,9 @@ export default async function Page() {
         <div className="mt-3 max-w-[420px]">{core.map((e) => <EnvRow key={e.name} {...e} />)}</div>
         <p className="mt-3.5 text-xs text-dim">
           Supabase keys are required. <code className="text-muted-foreground">TOKEN_ENCRYPTION_KEY</code> is required before any social account can be connected.
-          Without <code className="text-muted-foreground">REDIS_URL</code> the worker polls the database instead of consuming a queue.
+          Without <code className="text-muted-foreground">CRON_SECRET</code>, <code className="text-muted-foreground">/api/cron/publish</code> refuses every call
+          and scheduled posts only go out when someone opens the dashboard — set it, then run <code className="text-muted-foreground">supabase/schedule-publishing.sql</code>.
+          <code className="text-muted-foreground">REDIS_URL</code> is optional: it only decides when a runner wakes up.
         </p>
       </div>
 

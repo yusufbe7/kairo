@@ -22,7 +22,7 @@ Everything below runs against the real database with server-side authorization a
 - **Posts** — create, edit, duplicate, delete, save draft, schedule, reschedule (single and bulk), retry
 - **Calendar** — month / week / list, database-driven, drag-and-drop rescheduling that cancels and re-creates the job
 - **Media** — direct browser→Supabase Storage uploads into a private bucket, signed URLs, type and size validation, delete
-- **Scheduling** — every scheduled post writes a durable `scheduled_jobs` row; a separate worker publishes it
+- **Scheduling** — every scheduled post writes a durable `scheduled_jobs` row, drained by an HTTP tick that any scheduler can drive — no worker process to host
 - **AI Studio** — real model calls server-side, per-platform adaptation, usage stored and rate-limited
 - **Analytics** — reads stored snapshots only; shows honest empty states instead of invented numbers
 - **Admin panel** — separate `/admin` area gated on `profiles.is_super_admin`: platform metrics, users, workspaces, job monitor, system logs, feature flags (including a paywall kill switch), and an environment-variable checklist per provider
@@ -33,7 +33,7 @@ Everything below runs against the real database with server-side authorization a
 
 **Facebook and Instagram publish; the other five providers do not.** The schema, OAuth routes
 (with CSRF state validation), AES-256-GCM token encryption, the publishing abstraction, the queue
-and the worker are shared by all of them — what the remaining five are missing is their own API
+and the runner are shared by all of them — what the remaining five are missing is their own API
 calls. So:
 
 - **Facebook** — connect a Page, publish text, a photo, a photo carousel or a video
@@ -211,22 +211,56 @@ docker run -p 6379:6379 redis:7
 # .env.local → REDIS_URL=redis://localhost:6379
 ```
 
-Optional in development. Without it the rate limiter falls back to in-process memory and the worker
-polls the database instead of consuming a queue. **Use Redis in production**, where serverless
-instances don't share memory.
+Entirely optional. Without it the rate limiter falls back to in-process memory and publishing
+reads due jobs straight from `scheduled_jobs`. Redis only decides *when* a runner wakes up; the
+database row is always the source of truth. Use Redis in production if you have it — nothing
+breaks without it.
 
-## 9. Worker startup
+## 9. Scheduled publishing
 
-```bash
-npm run worker
-```
+There is no worker process to deploy. `scheduled_jobs` is the source of truth and one function,
+`runPublishingTick()`, drains it: it takes back jobs whose runner died, claims what is due with a
+conditional update (so two runners never publish the same post twice), records every attempt in
+`publishing_attempts`, retries transient failures with backoff (1m → 5m → 15m → 1h), stops
+immediately on permanent ones like bad credentials, and notifies workspace members of the result.
 
-Scheduled publishing does not depend on a browser being open. The worker claims due jobs with a
-conditional update (so two workers never run the same job), records every attempt in
-`publishing_attempts`, retries transient failures with exponential backoff (1m → 5m → 15m → 1h),
-stops immediately on permanent failures like bad credentials, and notifies workspace members of the
-result. It must run as a long-lived process — Railway, Fly.io, Render, or a container — not on Vercel's
-serverless runtime.
+Three things call it, and they overlap safely:
+
+| Caller | When | Why |
+|---|---|---|
+| `POST /api/cron/publish` | every minute, from a scheduler | **This is the one that matters.** Without it, scheduled posts wait. |
+| The request that scheduled the post | immediately, in `after()` | "Publish now" means now, not "within a minute" |
+| The dashboard layout | at most once a minute, in `after()` | Safety net: if the scheduler was never set up, opening the app still drains the queue |
+
+### Wiring up the scheduler
+
+1. Generate a secret and set it as `CRON_SECRET` in Vercel (and in `.env.local`):
+   ```bash
+   openssl rand -hex 32
+   ```
+   Until it is set, `/api/cron/publish` answers `503` and refuses to publish — an open publish
+   endpoint is a way for a stranger to burn your Meta API quota.
+
+2. Open `supabase/schedule-publishing.sql`, replace the two placeholders with your site URL and
+   that secret, and run it once in the Supabase SQL editor. It uses `pg_cron` + `pg_net`: Postgres
+   itself calls your site once a minute. This is free on every Supabase plan, and gives real
+   one-minute scheduling.
+
+   Vercel Cron works too (`vercel.json` → `crons`), but **Hobby plans only fire once a day**, which
+   is useless for scheduling posts. Use `pg_cron` unless you are on Vercel Pro.
+
+3. Check it:
+   ```bash
+   curl -s -H "Authorization: Bearer $CRON_SECRET" https://your-site/api/cron/publish
+   # {"ok":true,"reclaimed":0,"published":1,"failed":0,"retrying":0,"remaining":0}
+   ```
+   `401` means the secret doesn't match; `503` means `CRON_SECRET` isn't set on the deployment.
+
+### Running it as a process instead
+
+`npm run worker` is the same loop in a terminal — handy in development, or for self-hosting on
+Railway / Fly.io / a container without a scheduler. It is not required, and running it alongside
+cron is safe.
 
 ## 10. Development
 
@@ -249,19 +283,19 @@ npm run build && npm start
 `https://kairohub.pro/auth/callback` to the Supabase redirect allowlist. Set the Supabase **Site URL**
 to the same production origin — the email templates build every link from it.
 
-**Worker (separate service):** deploy the same repo with the start command `npm run worker`.
+**Scheduler:** set `CRON_SECRET` in Vercel, then run `supabase/schedule-publishing.sql` once in
+the Supabase SQL editor (section 9). That is the whole deployment — there is no second service to
+host. Without it, scheduled posts stay `queued` until someone opens the dashboard.
 
-It needs the same environment as the web app, minus Stripe and the app URL:
+If you do choose to run `npm run worker` somewhere instead, it needs the same environment as the
+web app, minus Stripe and the app URL:
 
-| Variable | Why the worker needs it |
+| Variable | Why the runner needs it |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Claiming jobs and writing results |
 | `TOKEN_ENCRYPTION_KEY` | Decrypting provider tokens — **must be byte-identical to the web app's**, or every publish fails |
-| `FACEBOOK_*`, `INSTAGRAM_*`, and any other provider's credentials | `publishToPlatform` refuses a provider whose `requiredEnv` is missing, so a worker without them fails every post with `NOT_CONFIGURED` |
-| `REDIS_URL` | Optional. Without it the worker polls `scheduled_jobs` every 15 seconds instead of consuming a queue |
-
-Nothing publishes while no worker is running: posts sit at `publishing` and scheduled jobs stay
-`queued`. Vercel cannot host it — its runtime has no long-lived process.
+| `FACEBOOK_*`, `INSTAGRAM_*`, and any other provider's credentials | `publishToPlatform` refuses a provider whose `requiredEnv` is missing, so a runner without them fails every post with `NOT_CONFIGURED` |
+| `REDIS_URL` | Optional. Without it it polls `scheduled_jobs` every 15 seconds instead of consuming a queue |
 
 **First super admin:** run once in the SQL editor —
 
@@ -293,12 +327,12 @@ lib/
   services/        domain logic (posts, media, accounts, analytics, inbox, notifications, usage, ai, audit)
   integrations/    per-provider modules + capability registry
   billing/         Stripe client, plan catalogue, subscription access rules
-  publishing/      provider-agnostic publish abstraction
+  publishing/      provider-agnostic publish abstraction + the queue runner
   queue/           durable job records + BullMQ driver
   supabase/        server / admin / browser / middleware clients
   permissions, validation, security, logger, time, env
-workers/publish.ts scheduled publishing worker
-supabase/          migrations, RLS tests, auth email templates
+workers/publish.ts optional long-lived runner (the same tick in a loop)
+supabase/          migrations, the pg_cron scheduler script, RLS tests, auth email templates
 docs/              how to obtain each social platform's API credentials
 tests/             vitest unit tests
 ```
