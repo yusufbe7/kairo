@@ -16,6 +16,30 @@ import { cn } from "@/lib/utils";
  *   plan (server validates + reserves a workspace path) → upload → register (server records the row).
  * The storage policy and a DB constraint both keep the object inside the workspace folder.
  */
+/**
+ * Turns a storage error into something the person reading it can act on. The provider's
+ * own wording is kept for anything unrecognised rather than swallowed.
+ */
+function uploadFailureMessage(reason: string): string {
+  const text = reason.toLowerCase();
+  if (text.includes("bucket not found")) {
+    return "The media storage bucket is missing on this deployment. An administrator needs to run the storage migration.";
+  }
+  if (text.includes("row-level security") || text.includes("policy")) {
+    return "Storage refused this upload. Your account may not have access to this workspace's media.";
+  }
+  if (text.includes("payload too large") || text.includes("exceeded the maximum")) {
+    return "That file is larger than this deployment allows.";
+  }
+  if (text.includes("mime") || text.includes("content type")) {
+    return "That file type isn't accepted. Use a JPEG, PNG, WebP, GIF or MP4.";
+  }
+  if (text.includes("already exists")) {
+    return "That file was already uploaded. Pick it from the media library.";
+  }
+  return `That upload didn't complete: ${reason}`;
+}
+
 async function uploadOne(file: File): Promise<MediaView | null> {
   const plan = await run(planUpload({ fileName: file.name, mimeType: file.type, sizeBytes: file.size }));
   if (!plan) return null;
@@ -23,7 +47,10 @@ async function uploadOne(file: File): Promise<MediaView | null> {
   const supabase = createClient();
   const { error } = await supabase.storage.from(plan.bucket).upload(plan.path, file, { contentType: file.type, upsert: false });
   if (error) {
-    toast.error("That upload didn't complete. Please try again.");
+    // Storage says exactly what went wrong — a missing bucket, a rejected file type, a
+    // size limit, a policy. Replacing all of it with "try again" makes a permanent
+    // misconfiguration look like a hiccup, and trying again never helps.
+    toast.error(uploadFailureMessage(error.message));
     return null;
   }
 

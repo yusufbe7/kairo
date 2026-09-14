@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fromDbError } from "@/lib/errors";
 import { enqueuePublish, removeQueueJob } from "./driver";
+import { kickPublishing } from "@/lib/publishing/kick";
 
 /**
  * Durable publish-job records (public.scheduled_jobs). Every scheduled post has exactly one
@@ -36,5 +37,7 @@ export async function schedulePublishJob(params: { workspaceId: string; postId: 
   const jobId = (data as { id: string }).id;
   const queueJobId = await enqueuePublish(jobId, params.runAt);
   if (queueJobId) await admin.from("scheduled_jobs").update({ queue_job_id: queueJobId }).eq("id", jobId);
+  // The row above is what guarantees the post goes out; this just saves it the wait.
+  kickPublishing(params.runAt);
   return jobId;
 }
