@@ -6,6 +6,7 @@ import { PROVIDERS } from "@/lib/integrations/registry";
 import { randomToken, sha256 } from "@/lib/security/crypto";
 import { AppError } from "@/lib/errors";
 import { MetaError } from "@/lib/integrations/meta/graph";
+import { CONNECT_FLOW_MAX_AGE } from "@/lib/integrations/connect-session";
 import { logger } from "@/lib/logger";
 import type { PlatformId } from "@/types/social";
 
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const state = randomToken();
     (await cookies()).set(OAUTH_STATE_COOKIE, JSON.stringify({ hash: sha256(state), platform: id, workspaceId: ctx.workspace.id }), {
-      httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 600,
+      httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: CONNECT_FLOW_MAX_AGE,
     });
 
     const { buildAuthorizeUrl } = await import(`@/lib/integrations/${id}/auth`).catch(() => ({ buildAuthorizeUrl: null }));
