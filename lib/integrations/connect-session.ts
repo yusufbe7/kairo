@@ -12,7 +12,18 @@ import type { PlatformId } from "@/types/social";
  * in the browser.
  */
 export const CONNECT_COOKIE = "kairo_connect";
-export const CONNECT_COOKIE_MAX_AGE = 10 * 60;
+
+/**
+ * How long a connection may sit half-finished.
+ *
+ * Meta's Login for Business flow is several screens deep — choosing a business, then
+ * assets, then reviewing permissions — and people read them. Ten minutes ran out often
+ * enough that the callback found no cookie and the connection died with "that attempt
+ * expired", which reads like a bug rather than a timeout. The state is single-use and
+ * only ever compared as a hash, so a longer window costs nothing.
+ */
+export const CONNECT_FLOW_MAX_AGE = 30 * 60;
+export const CONNECT_COOKIE_MAX_AGE = CONNECT_FLOW_MAX_AGE;
 
 export interface ConnectSession {
   platform: PlatformId;
