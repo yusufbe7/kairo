@@ -43,7 +43,10 @@ const CONNECT_ERRORS: Record<string, string> = {
   state_missing: "That connection attempt expired. Start again.",
   state_invalid: "That connection attempt couldn't be verified. Start again.",
   connect_expired: "That connection expired before you chose an account. Start again.",
-  exchange_failed: "The provider wouldn't complete the connection. Try again.",
+  media_rejected: "The provider rejected that media.",
+  network: "We couldn't reach the provider. Try again in a moment.",
+  invalid_app_id_secret: "The provider rejected this app's credentials. Check the App ID and secret.",
+  exchange_failed: "The provider wouldn't complete the connection, and didn't say why. An administrator can see the reason in Admin → System logs.",
   connect_failed: "We couldn't start that connection. Try again.",
   unknown_platform: "That platform isn't one Kairo supports.",
 };

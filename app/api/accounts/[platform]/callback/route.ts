@@ -5,6 +5,7 @@ import { upsertConnectedAccount } from "@/lib/services/accounts";
 import { PROVIDERS } from "@/lib/integrations/registry";
 import { encryptSecret, sha256 } from "@/lib/security/crypto";
 import { CONNECT_COOKIE, CONNECT_COOKIE_MAX_AGE } from "@/lib/integrations/connect-session";
+import { MetaError } from "@/lib/integrations/meta/graph";
 import { logger } from "@/lib/logger";
 import { OAUTH_STATE_COOKIE } from "../connect/route";
 import type { ExchangeResult } from "@/lib/integrations/types";
@@ -89,6 +90,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.redirect(`${origin}/accounts?connected=${id}`);
   } catch (error) {
+    // A provider error already says exactly what went wrong — no Page on the account,
+    // a permission the configuration never asked for, a rejected secret. Flattening all
+    // of them into "the provider wouldn't complete the connection" throws that away and
+    // leaves the only real diagnosis buried in the server logs.
+    if (error instanceof MetaError) {
+      logger.error("oauth.callback_failed", error.message, { platform: id, workspaceId: stored.workspaceId, code: error.code });
+      return fail(error.code.toLowerCase());
+    }
     logger.error("oauth.callback_failed", error instanceof Error ? error.message : "Unknown error", { platform: id, workspaceId: stored.workspaceId });
     return fail("exchange_failed");
   }
