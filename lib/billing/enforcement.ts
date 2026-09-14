@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { messageFrom } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 
 export const BILLING_FLAG = "ENFORCE_BILLING";
@@ -23,7 +24,7 @@ export const isBillingEnforced = cache(async (): Promise<boolean> => {
     // A missing row means the migration hasn't run yet — enforce.
     return (data as { enabled: boolean } | null)?.enabled ?? true;
   } catch (error) {
-    logger.error("billing.flag_unreadable", error instanceof Error ? error.message : "Unknown error");
+    logger.error("billing.flag_unreadable", messageFrom(error));
     return true;
   }
 });

@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/billing/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isBillablePlan } from "@/lib/billing/plans";
+import { messageFrom } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 
 /**
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     event = stripe().webhooks.constructEvent(raw, signature ?? "", secret);
   } catch (error) {
     // Never reveal why: an attacker probing the endpoint learns nothing from a 400.
-    logger.warn("stripe.signature_invalid", error instanceof Error ? error.message : "Unknown error");
+    logger.warn("stripe.signature_invalid", messageFrom(error));
     return NextResponse.json({ error: "invalid signature" }, { status: 400 });
   }
 
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
     if (RELEVANT.has(event.type)) await handle(event);
     await admin.from("webhook_events").update({ processed_at: new Date().toISOString() }).eq("external_event_id", event.id);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    const message = messageFrom(error);
     // Persisted to system_logs by the logger, which is where the failure is diagnosed.
     logger.error("stripe.webhook_failed", message, { eventId: event.id, type: event.type });
     // Drop the idempotency row: a 500 makes Stripe retry, and the retry has to be
