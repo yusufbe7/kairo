@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { AppError, fromDbError } from "@/lib/errors";
+import { AppError, fromDbError, messageFrom } from "@/lib/errors";
 import { mediaKindFor, IMAGE_MAX_BYTES } from "@/lib/validation/media";
 import { env } from "@/lib/env";
 import type { WorkspaceContext } from "@/lib/workspace/context";
@@ -36,17 +36,33 @@ export async function listMedia(ctx: WorkspaceContext): Promise<MediaView[]> {
 }
 
 /**
- * Validates an upload request and returns the storage path the browser must use.
- * The path is workspace-scoped; both the storage policy and a DB check constraint enforce it.
+ * Authorizes an upload and hands the browser a one-shot ticket for exactly one object.
+ *
+ * The permission decision happens here, on the server, where the caller's workspace role has
+ * already been checked. The browser then uploads with a signed token rather than its own
+ * session, which matters because a direct upload is the only request the app makes to Supabase
+ * from the browser: if that tab's session cookie is missing or stale, Storage answers a valid
+ * upload with a policy violation, and the person is told they have no access to their own
+ * workspace. A token can't be wrong about that.
+ *
+ * The token is bound to this one path inside the workspace folder, so it grants nothing beyond
+ * the upload that was just approved. The bucket's own size and MIME limits still apply.
  */
-export function planUpload(ctx: WorkspaceContext, input: { fileName: string; mimeType: string; sizeBytes: number }) {
+export async function planUpload(ctx: WorkspaceContext, input: { fileName: string; mimeType: string; sizeBytes: number }) {
   const kind = mediaKindFor(input.mimeType);
   const max = kind === "video" ? env().MEDIA_MAX_BYTES : IMAGE_MAX_BYTES;
   if (input.sizeBytes > max) {
     throw new AppError("VALIDATION", `That file is too large. The limit is ${Math.round(max / 1024 / 1024)} MB for ${kind === "video" ? "videos" : "images"}.`);
   }
   const ext = (input.fileName.split(".").pop() ?? "bin").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5);
-  return { path: `${ctx.workspace.id}/${crypto.randomUUID()}.${ext}`, kind, bucket: "media" as const };
+  const path = `${ctx.workspace.id}/${crypto.randomUUID()}.${ext}`;
+
+  const { data, error } = await createAdminClient().storage.from("media").createSignedUploadUrl(path);
+  if (error || !data?.token) {
+    // Almost always the storage migration never ran, so say that rather than "try again".
+    throw new AppError("INTERNAL", `Uploads aren't available: ${messageFrom(error, "Supabase Storage refused to issue an upload ticket.")}`);
+  }
+  return { path, kind, bucket: "media" as const, token: data.token };
 }
 
 /** Records an uploaded object. Verifies the object exists and matches what the client claimed. */

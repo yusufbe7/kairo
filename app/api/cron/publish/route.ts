@@ -16,7 +16,12 @@ export const dynamic = "force-dynamic";
 /** Vercel kills the function here; the tick stops claiming work before that (BUDGET_MS). */
 export const maxDuration = 60;
 
-const BUDGET_MS = 45_000;
+/**
+ * Comfortably inside a one-minute beat, so a slow tick never still holds the queue when the
+ * next one arrives. Overlapping ticks are correct but they double the load on the database,
+ * which on a small Supabase plan is how a 504 starts.
+ */
+const BUDGET_MS = 25_000;
 
 function authorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;

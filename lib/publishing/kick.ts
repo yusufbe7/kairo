@@ -31,8 +31,12 @@ export function kickPublishing(runAt: Date): void {
   }
 }
 
-/** At most one opportunistic sweep per minute, per server instance. */
-const SWEEP_INTERVAL_MS = 60_000;
+/**
+ * At most one opportunistic sweep per five minutes, per server instance. Serverless gives each
+ * cold start its own counter, so a popular dashboard can sweep far more often than this reads —
+ * keeping it well below the cron beat is what stops it competing with the scheduler.
+ */
+const SWEEP_INTERVAL_MS = 5 * 60_000;
 let lastSweep = 0;
 
 /**
@@ -49,7 +53,7 @@ export function sweepPublishing(): void {
   try {
     after(async () => {
       try {
-        await runPublishingTick({ budgetMs: 20_000, limit: 5, runnerId: "sweep" });
+        await runPublishingTick({ budgetMs: 15_000, limit: 3, runnerId: "sweep" });
       } catch (error) {
         logger.warn("publishing.sweep_failed", messageFrom(error, "The opportunistic publish sweep failed."));
       }

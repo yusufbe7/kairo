@@ -12,7 +12,7 @@ import { registerMediaSchema, uploadRequestSchema } from "@/lib/validation/media
 export const planUpload = safeAction("media.plan", uploadRequestSchema, async (input) => {
   const ctx = await requireWorkspace("media.upload");
   await rateLimit(`upload:${ctx.userId}`, { limit: 60, windowSeconds: 60 });
-  return media.planUpload(ctx, input);
+  return await media.planUpload(ctx, input);
 });
 
 /** Step 3 (after the browser uploads directly to Storage): record the asset. */

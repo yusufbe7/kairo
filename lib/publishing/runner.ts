@@ -40,6 +40,8 @@ export interface TickOptions {
 
 export interface TickSummary {
   reclaimed: number;
+  /** Posts that were stuck on "Publishing" with no job behind them. */
+  settled: number;
   published: number;
   failed: number;
   retrying: number;
@@ -108,6 +110,68 @@ export async function reclaimStaleJobs(db: SupabaseClient, limit = 20): Promise<
     });
   }
   return reclaimed;
+}
+
+/** A post is only considered abandoned once no runner could plausibly still be working on it. */
+const STRANDED_AFTER_MS = STALE_LOCK_MS + 60_000;
+
+/**
+ * Settles posts left reading "Publishing" with no job behind them.
+ *
+ * Every write in runJob can fail on its own — Supabase returns a 504 often enough on a small
+ * plan — and the one that matters is the last: the job reaches a terminal state while the post
+ * keeps saying "Publishing". Nothing else in the system ever looks at that post again, so it
+ * says "Publishing" for good. The post's own targets are the record of what actually happened,
+ * so they decide the outcome here.
+ */
+export async function settleStrandedPosts(db: SupabaseClient, limit = 20): Promise<number> {
+  const cutoff = new Date(Date.now() - STRANDED_AFTER_MS).toISOString();
+  const { data, error } = await db
+    .from("posts")
+    .select("id, workspace_id")
+    .eq("status", "publishing")
+    .lt("updated_at", cutoff)
+    .limit(limit);
+
+  if (error) {
+    logger.warn("publishing.settle_failed", messageFrom(error, "Could not look for stranded posts."));
+    return 0;
+  }
+
+  let settled = 0;
+  for (const post of (data ?? []) as { id: string; workspace_id: string }[]) {
+    // A live job means it is still in flight, however long it has taken.
+    const { count } = await db
+      .from("scheduled_jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("post_id", post.id)
+      .in("status", ["queued", "processing", "retrying"]);
+    if (count) continue;
+
+    const { data: targets } = await db.from("post_targets").select("status").eq("post_id", post.id);
+    const rows = (targets ?? []) as { status: string }[];
+    const published = rows.filter((t) => t.status === "published").length;
+    const status = published > 0 && published === rows.length ? "published" : "failed";
+
+    const { error: writeError } = await db
+      .from("posts")
+      .update({
+        status,
+        published_at: status === "published" ? new Date().toISOString() : null,
+        last_error: status === "failed" ? "Publishing stopped before it finished. Open the post to retry." : null,
+      })
+      .eq("id", post.id)
+      .eq("status", "publishing");
+    if (writeError) continue;
+
+    if (status === "failed") {
+      await db.from("post_targets").update({ status: "failed", last_error: "Publishing stopped before it finished." })
+        .eq("post_id", post.id).in("status", ["processing", "queued", "retrying"]);
+    }
+    settled += 1;
+    logger.warn("publishing.post_settled", `A post stuck on "Publishing" was settled as ${status}`, { workspaceId: post.workspace_id, postId: post.id });
+  }
+  return settled;
 }
 
 /** Marks a post and its unfinished targets failed, so the UI stops showing "Publishing". */
@@ -314,11 +378,12 @@ export async function runPublishingTick(options: TickOptions = {}): Promise<Tick
   const limit = options.limit ?? 25;
   const budgetMs = options.budgetMs ?? Number.POSITIVE_INFINITY;
   const startedAt = Date.now();
-  const summary: TickSummary = { reclaimed: 0, published: 0, failed: 0, retrying: 0, remaining: 0 };
+  const summary: TickSummary = { reclaimed: 0, settled: 0, published: 0, failed: 0, retrying: 0, remaining: 0 };
   const db = createAdminClient();
 
   try {
     summary.reclaimed = await reclaimStaleJobs(db);
+    summary.settled = await settleStrandedPosts(db);
 
     for (let ran = 0; ran < limit; ran += 1) {
       if (Date.now() - startedAt >= budgetMs) break;

@@ -25,7 +25,7 @@ const log = (event: string, data: Record<string, unknown> = {}) =>
 
 async function tick() {
   const summary = await runPublishingTick({ runnerId: RUNNER_ID });
-  if (summary.published || summary.failed || summary.retrying || summary.reclaimed) log("tick.done", { ...summary });
+  if (summary.published || summary.failed || summary.retrying || summary.reclaimed || summary.settled) log("tick.done", { ...summary });
 }
 
 async function main() {
