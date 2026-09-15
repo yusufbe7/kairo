@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { LoaderCircle, Plus, Upload, X } from "lucide-react";
 import { Thumb } from "@/components/social/thumb";
-import { createClient } from "@/lib/supabase/client";
+import { uploadWithTicket } from "@/lib/client/upload";
 import { planUpload, registerMedia } from "@/lib/actions/media";
 import { run } from "@/lib/client/action";
 import type { MediaView } from "@/types/posts";
@@ -16,53 +16,18 @@ import { cn } from "@/lib/utils";
  *   plan (server validates + reserves a workspace path) → upload → register (server records the row).
  * The storage policy and a DB constraint both keep the object inside the workspace folder.
  */
-/**
- * Turns a storage error into something the person reading it can act on. The provider's
- * own wording is kept for anything unrecognised rather than swallowed.
- */
-function uploadFailureMessage(reason: string): string {
-  const text = reason.toLowerCase();
-  if (text.includes("bucket not found")) {
-    return "The media storage bucket is missing on this deployment. An administrator needs to run the storage migration.";
-  }
-  if (text.includes("row-level security") || text.includes("policy")) {
-    // Reaching this with a valid session means the workspace membership, not the sign-in,
-    // is what the policy rejected — so say which one to check.
-    return "Storage refused this upload: your account is signed in but isn't an accepted member of this workspace. An administrator can check Settings \u2192 Members.";
-  }
-  if (text.includes("payload too large") || text.includes("exceeded the maximum")) {
-    return "That file is larger than this deployment allows.";
-  }
-  if (text.includes("mime") || text.includes("content type")) {
-    return "That file type isn't accepted. Use a JPEG, PNG, WebP, GIF or MP4.";
-  }
-  if (text.includes("already exists")) {
-    return "That file was already uploaded. Pick it from the media library.";
-  }
-  return `That upload didn't complete: ${reason}`;
-}
-
 async function uploadOne(file: File): Promise<MediaView | null> {
+  // The server checks the workspace role and hands back a ticket for one object; the browser
+  // only carries the bytes. Storage can no longer refuse an upload the server already allowed.
   const plan = await run(planUpload({ fileName: file.name, mimeType: file.type, sizeBytes: file.size }));
   if (!plan) return null;
 
-  const supabase = createClient();
-
-  // The upload goes to Storage as the signed-in user, not through the server, so it needs a
-  // session in *this tab*. Without one Storage answers with a policy violation, which reads
-  // like "you have no access to this workspace" — a confusing way to say "reload the page".
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    toast.error("Your session isn't available in this tab, so Storage rejected the upload. Reload the page and try again.");
-    return null;
-  }
-
-  const { error } = await supabase.storage.from(plan.bucket).upload(plan.path, file, { contentType: file.type, upsert: false });
-  if (error) {
-    // Storage says exactly what went wrong — a missing bucket, a rejected file type, a
-    // size limit, a policy. Replacing all of it with "try again" makes a permanent
-    // misconfiguration look like a hiccup, and trying again never helps.
-    toast.error(uploadFailureMessage(error.message));
+  const failure = await uploadWithTicket(plan, file);
+  if (failure) {
+    // Storage says exactly what went wrong — a missing bucket, a rejected file type, a size
+    // limit. Replacing all of it with "try again" makes a permanent misconfiguration look like
+    // a hiccup, and trying again never helps.
+    toast.error(failure);
     return null;
   }
 

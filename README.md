@@ -21,7 +21,7 @@ Everything below runs against the real database with server-side authorization a
 - **Roles** — owner / admin / editor / member / viewer, enforced in server actions *and* in RLS policies
 - **Posts** — create, edit, duplicate, delete, save draft, schedule, reschedule (single and bulk), retry
 - **Calendar** — month / week / list, database-driven, drag-and-drop rescheduling that cancels and re-creates the job
-- **Media** — direct browser→Supabase Storage uploads into a private bucket, signed URLs, type and size validation, delete
+- **Media** — direct browser→Supabase Storage uploads with a server-issued, single-object upload ticket; private bucket, signed URLs, type and size validation, delete
 - **Scheduling** — every scheduled post writes a durable `scheduled_jobs` row, drained by an HTTP tick that any scheduler can drive — no worker process to host
 - **AI Studio** — real model calls server-side, per-platform adaptation, usage stored and rate-limited
 - **Analytics** — reads stored snapshots only; shows honest empty states instead of invented numbers

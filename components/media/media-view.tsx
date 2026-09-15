@@ -16,7 +16,7 @@ import { EmptyState } from "@/components/layout/empty-state";
 import { Thumb } from "@/components/social/thumb";
 import { ConfirmDialog } from "@/components/posts/confirm-dialog";
 import { useWorkspace } from "@/components/providers/workspace-provider";
-import { createClient } from "@/lib/supabase/client";
+import { uploadWithTicket } from "@/lib/client/upload";
 import { deleteMedia, planUpload, registerMedia } from "@/lib/actions/media";
 import { run } from "@/lib/client/action";
 import { fmtBytes, timeAgo } from "@/lib/format";
@@ -39,13 +39,13 @@ export function MediaView({ media, storageUsed }: { media: MediaItem[]; storageU
     if (!files?.length || !can("media.upload")) return;
     const list = Array.from(files);
     setUploading(list.length);
-    const supabase = createClient();
     let done = 0;
     for (const file of list) {
       const plan = await run(planUpload({ fileName: file.name, mimeType: file.type, sizeBytes: file.size }));
       if (!plan) { setUploading((n) => n - 1); continue; }
-      const { error } = await supabase.storage.from(plan.bucket).upload(plan.path, file, { contentType: file.type });
-      if (error) { toast.error(`${file.name} didn't upload.`); setUploading((n) => n - 1); continue; }
+      const failure = await uploadWithTicket(plan, file);
+      // "didn't upload" told nobody anything; the provider's reason is the whole point.
+      if (failure) { toast.error(`${file.name}: ${failure}`); setUploading((n) => n - 1); continue; }
       const asset = await run(registerMedia({ path: plan.path, fileName: file.name, width: null, height: null, durationSeconds: null }));
       if (asset) done += 1;
       setUploading((n) => n - 1);
