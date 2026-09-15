@@ -35,7 +35,28 @@ interface GraphErrorBody {
  * missing permission will fail identically forever, so retrying only delays the
  * moment someone is told to fix it.
  */
-function classify(status: number, code: number | undefined, subcode: number | undefined) {
+/**
+ * The Meta app itself is off — deactivated, deleted or restricted in the developer dashboard.
+ * Every token it ever issued dies with it, so this arrives looking exactly like a revoked user
+ * token. It is not: nothing the person reconnects can help, because the reconnect flow is down
+ * too. Telling them to reconnect sends them round a loop they cannot win.
+ */
+const APP_UNAVAILABLE = /application has been deleted|error validating application|app not active|application is not (currently )?(active|available)/i;
+
+/** Meta reports this in the message, not the code — 190 alone cannot tell the two apart. */
+export function isAppUnavailable(message: string): boolean {
+  return APP_UNAVAILABLE.test(message);
+}
+
+function classify(status: number, code: number | undefined, subcode: number | undefined, message: string) {
+  if (isAppUnavailable(message)) {
+    return {
+      retryable: false,
+      needsReconnect: false,
+      label: "APP_UNAVAILABLE",
+      override: "The Facebook app behind this deployment is not active. An administrator has to reactivate it at developers.facebook.com — reconnecting the account cannot fix it.",
+    };
+  }
   // Token problems: expired, revoked, password changed, session invalidated.
   if (code === 190 || code === 102 || subcode === 463 || subcode === 467) {
     return { retryable: false, needsReconnect: true, label: "TOKEN_INVALID" };
@@ -75,10 +96,10 @@ async function call<T>(url: string, init: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const err = (body as GraphErrorBody)?.error;
-    const { retryable, needsReconnect, label } = classify(response.status, err?.code, err?.error_subcode);
     // error_user_msg is Meta's own user-facing wording and is better than ours when present.
-    const message = err?.error_user_msg || err?.message || text.slice(0, 300) || `Graph API returned ${response.status}`;
-    throw new MetaError(label, message, retryable, needsReconnect);
+    const reported = err?.error_user_msg || err?.message || text.slice(0, 300) || `Graph API returned ${response.status}`;
+    const { retryable, needsReconnect, label, override } = classify(response.status, err?.code, err?.error_subcode, reported);
+    throw new MetaError(label, override ?? reported, retryable, needsReconnect);
   }
   return body as T;
 }
